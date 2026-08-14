@@ -1,0 +1,28 @@
+<DialogueTree xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/Outer-Wilds-New-Horizons/new-horizons/main/NewHorizons/Schemas/dialogue_schema.xsd">
+  <NameField>$RETURN_MEMORY_LINK_NAME</NameField>
+  <DialogueNode>
+    <Name>START</Name>
+    <EntryCondition>DEFAULT</EntryCondition>
+    <Dialogue>
+      <Page>$RETURN_VICTORY_DIALOGUE_01</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_02</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_03</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_04</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_05</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_06</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_07</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_08</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_09</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_10</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_11</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_12</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_13</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_14</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_15</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_16</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_17</Page>
+      <Page>$RETURN_VICTORY_DIALOGUE_18</Page>
+    </Dialogue>
+    <SetCondition>RETURN_SCENE6_VICTORY_DIALOGUE_HEARD</SetCondition>
+  </DialogueNode>
+</DialogueTree>

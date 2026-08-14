@@ -1,0 +1,17 @@
+<DialogueTree xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/Outer-Wilds-New-Horizons/new-horizons/main/NewHorizons/Schemas/dialogue_schema.xsd">
+  <NameField>$RETURN_MINE_TEAM_NAME</NameField>
+  <DialogueNode>
+    <Name>START</Name>
+    <EntryCondition>DEFAULT</EntryCondition>
+    <Dialogue>
+      <Page>$RETURN_MINE_01</Page>
+      <Page>$RETURN_MINE_02</Page>
+      <Page>$RETURN_MINE_03</Page>
+      <Page>$RETURN_MINE_04</Page>
+      <Page>$RETURN_MINE_05</Page>
+      <Page>$RETURN_MINE_06</Page>
+      <Page>$RETURN_MINE_07</Page>
+    </Dialogue>
+    <SetCondition>RETURN_MINE_TEAM_HEARD</SetCondition>
+  </DialogueNode>
+</DialogueTree>

@@ -1,0 +1,28 @@
+<DialogueTree xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/Outer-Wilds-New-Horizons/new-horizons/main/NewHorizons/Schemas/dialogue_schema.xsd">
+  <NameField>$RETURN_MEMORY_LINK_NAME</NameField>
+  <DialogueNode>
+    <Name>START</Name>
+    <EntryCondition>DEFAULT</EntryCondition>
+    <Dialogue>
+      <Page>$RETURN_SCENE5_01</Page>
+      <Page>$RETURN_SCENE5_02</Page>
+      <Page>$RETURN_SCENE5_03</Page>
+      <Page>$RETURN_SCENE5_04</Page>
+      <Page>$RETURN_SCENE5_05</Page>
+      <Page>$RETURN_SCENE5_06</Page>
+      <Page>$RETURN_SCENE5_07</Page>
+      <Page>$RETURN_SCENE5_08</Page>
+      <Page>$RETURN_SCENE5_09</Page>
+      <Page>$RETURN_SCENE5_10</Page>
+      <Page>$RETURN_SCENE5_11</Page>
+      <Page>$RETURN_SCENE5_12</Page>
+      <Page>$RETURN_SCENE5_13</Page>
+      <Page>$RETURN_SCENE5_14</Page>
+      <Page>$RETURN_SCENE5_15</Page>
+      <Page>$RETURN_SCENE5_16</Page>
+      <Page>$RETURN_SCENE5_17</Page>
+      <Page>$RETURN_SCENE5_18</Page>
+    </Dialogue>
+    <SetCondition>RETURN_SCENE5_HEARD</SetCondition>
+  </DialogueNode>
+</DialogueTree>

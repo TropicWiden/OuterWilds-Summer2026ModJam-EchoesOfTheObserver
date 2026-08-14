@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Outer-Wilds-New-Horizons/new-horizons/main/NewHorizons/Schemas/body_schema.json",
+  "name": "Timber Hearth",
+  "starSystem": "SolarSystem",
+  "Props": {
+    "details": [
+      {
+        "rename": "RETURN_COLEUS",
+        "path": "QuantumMoon_Body/Sector_QuantumMoon/State_EYE/Interactables_EYEState/ConversationPivot/Character_NOM_Solanum/Nomai_ANIM_SkyWatching_Idle",
+        "position": { "x": -42.0989, "y": -14.0450, "z": -107.0618 },
+        "rotation": { "x": 0, "y": 0, "z": 0 },
+        "alignRadial": true,
+        "scale": 1
+      },
+      {
+        "rename": "RETURN_CYCAD",
+        "path": "QuantumMoon_Body/Sector_QuantumMoon/State_EYE/Interactables_EYEState/ConversationPivot/Character_NOM_Solanum/Nomai_ANIM_SkyWatching_Idle",
+        "position": { "x": -46.7579, "y": -5.3894, "z": -105.9064 },
+        "rotation": { "x": 0, "y": 120, "z": 0 },
+        "alignRadial": true,
+        "scale": 1
+      },
+      {
+        "rename": "RETURN_OENO",
+        "path": "QuantumMoon_Body/Sector_QuantumMoon/State_EYE/Interactables_EYEState/ConversationPivot/Character_NOM_Solanum/Nomai_ANIM_SkyWatching_Idle",
+        "position": { "x": -36.9912, "y": -5.4030, "z": -108.8145 },
+        "rotation": { "x": 0, "y": 240, "z": 0 },
+        "alignRadial": true,
+        "scale": 1
+      }
+    ]
+  }
+}

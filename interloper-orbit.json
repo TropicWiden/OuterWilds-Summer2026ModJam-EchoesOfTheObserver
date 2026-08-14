@@ -1,0 +1,29 @@
+{
+  "enabled": true,
+  "sunBodyName": "Sun_Body",
+  "cometBodyName": "Comet_Body",
+  "targetBodyName": "WhiteholeStation_Body",
+
+  "startDistanceFromSunMeters": 120000.0,
+  "interceptTimeMinutes": 15.0,
+  "targetPredictionLeadSeconds": 0.0,
+  "interceptCenterDistanceMeters": 800.0,
+  "sunInitialRadiusMeters": 2000.0,
+  "solarSurfaceClearanceMeters": 800.0,
+  "maximumInterceptRadialSpeedMetersPerSecond": 800.0,
+
+  "interceptOffsetTargetLocalX": 0.0,
+  "interceptOffsetTargetLocalY": 0.0,
+  "interceptOffsetTargetLocalZ": 0.0,
+
+  "simulationStepSeconds": 0.25,
+  "distanceSolverIterations": 24,
+  "minimumInterceptLeadSeconds": 30.0,
+
+  "mapTrajectoryPreviewMinutes": 18.0,
+  "mapTrajectoryPointCount": 256,
+  "mapRefreshIntervalSeconds": 0.2,
+  "mapSimulationStepSeconds": 1.0,
+  "mapMinimumSolarRadiusMeters": 1500.0,
+  "terminalRadiusToleranceMeters": 25.0
+}

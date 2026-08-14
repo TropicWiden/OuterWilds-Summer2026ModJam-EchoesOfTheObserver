@@ -1,0 +1,5 @@
+﻿<Project>
+  <PropertyGroup>
+    <OutputPath>$(AppData)/OuterWildsModManager/OWML/Mods/Known-Mouse.Return</OutputPath>
+  </PropertyGroup>
+</Project>
