@@ -4,7 +4,7 @@
 
 A story mod for *Outer Wilds*, created by Known-Mouse for the Summer 2026 Outer Wilds Mod Jam.
 
-140 million years million years into a new universe, you are still a little blue fish living in the mines.
+140 million years into a new universe, you are still a little blue fish living in the mines.
 
 There, you encounter the Nomai and share your memories with Daz. 
 
