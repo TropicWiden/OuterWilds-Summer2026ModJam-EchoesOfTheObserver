@@ -1,4 +1,3 @@
-# Echoes of the Observer - Creates a draft GitHub release from the mod manifest version.
 name: Create Release
 
 on:
