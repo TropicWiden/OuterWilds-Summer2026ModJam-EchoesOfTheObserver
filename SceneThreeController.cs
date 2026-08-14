@@ -23,6 +23,9 @@ namespace Return
         private ReturnMod _mod;
         private StreamingIteratedTextureAssetBundle _bundle;
         private bool _subscriptionStarted;
+        private bool _keepPlayerSafe;
+        private OWRigidbody _safeIslandBody;
+        private Vector3 _safeLocalOffset;
 
         public static IEnumerator Enter(
             ReturnMod mod,
@@ -50,6 +53,51 @@ namespace Return
             yield return controller.Play();
         }
 
+        private void StartKeepingPlayerSafe()
+        {
+            _safeIslandBody = null;
+            foreach (OWRigidbody body in
+                Resources.FindObjectsOfTypeAll<OWRigidbody>())
+            {
+                if (body != null &&
+                    body.gameObject.scene.IsValid() &&
+                    body.name == "StatueIsland_Body")
+                {
+                    _safeIslandBody = body;
+                    break;
+                }
+            }
+            _safeLocalOffset = new Vector3(0f, 120f, 0f);
+            _keepPlayerSafe = true;
+        }
+
+        private void Update()
+        {
+            if (!_keepPlayerSafe)
+            {
+                return;
+            }
+
+            OWRigidbody player = Locator.GetPlayerBody();
+            if (player == null || _safeIslandBody == null)
+            {
+                return;
+            }
+
+            Vector3 worldPosition =
+                _safeIslandBody.transform.TransformPoint(_safeLocalOffset);
+            player.WarpToPositionRotation(
+                worldPosition,
+                _safeIslandBody.GetRotation()
+            );
+            player.SetVelocity(
+                _safeIslandBody.GetPointVelocity(worldPosition)
+            );
+            player.SetAngularVelocity(
+                _safeIslandBody.GetAngularVelocity()
+            );
+        }
+
         private IEnumerator Play()
         {
             _mod.ModHelper.Console.WriteLine(
@@ -57,6 +105,11 @@ namespace Return
                 "Eye story slides.",
                 MessageType.Info
             );
+
+            // The player is physically standing on Statue Island while the
+            // black-screen scenes play. Keep them hovering high above it so
+            // the vanilla tornado toss can never kill them mid-dialogue.
+            StartKeepingPlayerSafe();
 
             if (!StreamingManager.isStreamingEnabled ||
                 !StreamingManager.StreamingAssetAvailable(StoryBundle))
@@ -316,7 +369,8 @@ namespace Return
 
             yield return PlayBlackScreenDialogue(
                 "dialogue/scene_four.xml",
-                "RETURN_SCENE_4_DIALOGUE"
+                "RETURN_SCENE_4_DIALOGUE",
+                "RETURN_SCENE4"
             );
 
             // Let the dialogue UI fully close before opening the next tree.
@@ -325,19 +379,22 @@ namespace Return
 
             yield return PlayBlackScreenDialogue(
                 "dialogue/scene_five.xml",
-                "RETURN_SCENE_5_DIALOGUE"
+                "RETURN_SCENE_5_DIALOGUE",
+                "RETURN_SCENE5"
             );
 
             _mod.ModHelper.Console.WriteLine(
                 "[RETURN SCENE 5] Dialogue completed.",
                 MessageType.Success
             );
+            _keepPlayerSafe = false;
             SceneSixController.Begin(_mod);
         }
 
         private IEnumerator PlayBlackScreenDialogue(
             string dialoguePath,
-            string objectName
+            string objectName,
+            string imagePrefix
         )
         {
             if (_mod.NewHorizons == null)
@@ -390,13 +447,31 @@ namespace Return
 
             // StartConversation verifies/loads the XML immediately, but a
             // frame here also allows New Horizons to finish its components.
+            SceneDialogueBackgroundController.Begin(_mod, imagePrefix);
             yield return null;
             dialogue.StartConversation();
 
+            // Show the first page's illustration; the AdvancePage event
+            // switches the rest as the player pages through the dialogue.
+            SceneDialogueBackgroundController.ShowPageForPage(1);
+            dialogue.OnAdvancePage += OnDialogueAdvancePage;
+
             while (dialogue != null && dialogue.InConversation())
             {
+                SceneDialogueBackgroundController.EnsureAttached();
                 yield return null;
             }
+
+            dialogue.OnAdvancePage -= OnDialogueAdvancePage;
+            SceneDialogueBackgroundController.End();
+        }
+
+        private static void OnDialogueAdvancePage(
+            string nodeName,
+            int pageNum
+        )
+        {
+            SceneDialogueBackgroundController.ShowPageForPage(pageNum);
         }
 
         private void SetSlide(Renderer renderer, int streamingId)

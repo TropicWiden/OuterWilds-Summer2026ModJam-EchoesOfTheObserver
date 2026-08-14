@@ -77,7 +77,7 @@ namespace Return
 
             float secondsUntilTerminal =
                 InterloperTrajectoryController.TerminalLoopTimeSeconds -
-                TimeLoop.GetSecondsElapsed();
+                InterloperTrajectoryController.GetSceneSixElapsedSeconds();
             if (secondsUntilTerminal < WakeBeforeTerminalSeconds)
             {
                 __result = true;

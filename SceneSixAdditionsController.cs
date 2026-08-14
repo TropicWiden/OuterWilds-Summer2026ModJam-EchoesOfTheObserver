@@ -1,4 +1,4 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using OWML.Common;
 using System;
 using System.Collections;
@@ -385,6 +385,17 @@ namespace Return
 
         private static GameObject FindRecorderTemplate(Transform body)
         {
+            if (body != null)
+            {
+                GameObject localTemplate = FindCompleteRecorder(
+                    body.GetComponentsInChildren<NomaiText>(true)
+                );
+                if (localTemplate != null)
+                {
+                    return localTemplate;
+                }
+            }
+
             GameObject fallback = null;
             foreach (NomaiText candidate in
                 Resources.FindObjectsOfTypeAll<NomaiText>())
@@ -407,7 +418,7 @@ namespace Return
                 }
 
                 GameObject completeRecorder = recorderRoot.gameObject;
-                if (IsChildOf(recorderRoot, body))
+                if (body != null && IsChildOf(recorderRoot, body))
                 {
                     return completeRecorder;
                 }
@@ -417,6 +428,34 @@ namespace Return
                 }
             }
             return fallback;
+        }
+
+        private static GameObject FindCompleteRecorder(
+            NomaiText[] candidates
+        )
+        {
+            if (candidates == null)
+            {
+                return null;
+            }
+            foreach (NomaiText candidate in candidates)
+            {
+                if (candidate == null)
+                {
+                    continue;
+                }
+                Transform recorderRoot = candidate.transform.parent;
+                while (recorderRoot != null &&
+                    !recorderRoot.name.StartsWith("Prefab_NOM_Recorder"))
+                {
+                    recorderRoot = recorderRoot.parent;
+                }
+                if (recorderRoot != null)
+                {
+                    return recorderRoot.gameObject;
+                }
+            }
+            return null;
         }
 
         private static void LockRecordingToGravityCannon(
@@ -544,12 +583,9 @@ namespace Return
                 return null;
             }
             foreach (Sector sector in
-                Resources.FindObjectsOfTypeAll<Sector>())
+                root.GetComponentsInChildren<Sector>(true))
             {
-                if (sector != null &&
-                    sector.gameObject.scene.IsValid() &&
-                    sector.name == objectName &&
-                    IsChildOf(sector.transform, root))
+                if (sector != null && sector.name == objectName)
                 {
                     return sector;
                 }
@@ -567,12 +603,9 @@ namespace Return
                 return null;
             }
             foreach (Transform candidate in
-                Resources.FindObjectsOfTypeAll<Transform>())
+                root.GetComponentsInChildren<Transform>(true))
             {
-                if (candidate != null &&
-                    candidate.gameObject.scene.IsValid() &&
-                    candidate.name == objectName &&
-                    IsChildOf(candidate, root))
+                if (candidate != null && candidate.name == objectName)
                 {
                     return candidate;
                 }

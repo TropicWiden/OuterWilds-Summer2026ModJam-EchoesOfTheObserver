@@ -32,6 +32,10 @@ namespace Return
         private static GameObject _sceneRoot;
         private static Transform _statueLookTarget;
         private static CharacterDialogueTree _dialogue;
+        private static bool _timePaused;
+        private static OWRigidbody _frozenIslandBody;
+        private static IslandController _frozenIslandController;
+        private static bool _islandFrozen;
 
         public static bool TryBegin(ReturnMod mod)
         {
@@ -55,11 +59,66 @@ namespace Return
 
         public static void Reset()
         {
+            UnfreezeStatueIsland();
+            RestoreTimePause();
             _transitionStarted = false;
             _sceneThreeStarted = false;
             _sceneRoot = null;
             _statueLookTarget = null;
             _dialogue = null;
+        }
+
+        private static void RestoreTimePause()
+        {
+            if (!_timePaused)
+            {
+                return;
+            }
+
+            if (OWTime.IsPaused(OWTime.PauseType.Reading))
+            {
+                OWTime.Unpause(OWTime.PauseType.Reading);
+            }
+            _timePaused = false;
+        }
+
+        private static void FreezeStatueIsland(OWRigidbody islandBody)
+        {
+            if (islandBody == null || _islandFrozen)
+            {
+                return;
+            }
+
+            _frozenIslandBody = islandBody;
+            _frozenIslandController =
+                islandBody.GetComponentInChildren<IslandController>(true);
+            if (_frozenIslandController != null)
+            {
+                _frozenIslandController.enabled = false;
+            }
+            islandBody.MakeKinematic();
+            _islandFrozen = true;
+        }
+
+        public static void UnfreezeStatueIsland()
+        {
+            if (!_islandFrozen)
+            {
+                return;
+            }
+
+            if (_frozenIslandBody != null)
+            {
+                _frozenIslandBody.MakeNonKinematic();
+            }
+            if (_frozenIslandController != null)
+            {
+                _frozenIslandController.enabled = true;
+            }
+
+            _frozenIslandBody = null;
+            _frozenIslandController = null;
+            _islandFrozen = false;
         }
 
         private static IEnumerator Transition(ReturnMod mod)
@@ -103,6 +162,11 @@ namespace Return
                 out playerPosition,
                 out playerRotation
             );
+
+            // Freeze the island before the player arrives so the Statue
+            // Workshop dialogue cannot be interrupted by the vanilla tornado
+            // toss. It is released again when Scene Six starts.
+            FreezeStatueIsland(statueIslandBody);
 
             OWRigidbody playerBody = Locator.GetPlayerBody();
             PlayerCharacterController playerController =
@@ -164,6 +228,16 @@ namespace Return
                 yield return null;
             }
 
+            // Freeze the world clock while the Statue Workshop dialogue plays,
+            // so the player cannot die before Scene Six begins. This happens
+            // only after the eye-opening animation has finished, otherwise the
+            // eyelid would freeze half-closed and leave a black screen.
+            if (!OWTime.IsPaused(OWTime.PauseType.Reading))
+            {
+                OWTime.Pause(OWTime.PauseType.Reading);
+                _timePaused = true;
+            }
+
             if (_dialogue != null && !_dialogue.InConversation())
             {
                 _dialogue.StartConversation();
@@ -179,6 +253,8 @@ namespace Return
                 );
                 yield return null;
             }
+
+            RestoreTimePause();
 
             mod.ModHelper.Console.WriteLine(
                 "[RETURN SCENE 2] Statue Workshop dialogue completed.",
@@ -1264,10 +1340,9 @@ namespace Return
     {
         private static void Postfix(OWScene newScene)
         {
-            if (newScene == OWScene.SolarSystem)
-            {
-                SceneTwoController.Reset();
-            }
+            // Reset on every completed scene load so a pause left behind by an
+            // interrupted Statue Workshop dialogue can never stick forever.
+            SceneTwoController.Reset();
         }
     }
 }

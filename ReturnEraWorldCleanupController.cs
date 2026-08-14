@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using HarmonyLib;
@@ -18,6 +18,7 @@ namespace Return
         private const int CleanupPasses = 3;
         private const float InitialDelaySeconds = 2f;
         private const float PassDelaySeconds = 2f;
+        private const int CleanupBatchSize = 1200;
 
         public static IEnumerator Prepare(ReturnMod mod)
         {
@@ -35,7 +36,8 @@ namespace Return
             int totalSkeletons = 0;
             for (int pass = 0; pass < CleanupPasses; pass++)
             {
-                CleanupResult result = ApplyCleanupPass();
+                CleanupResult result = new CleanupResult();
+                yield return ApplyCleanupPassChunked(result);
                 totalNpc += result.hearthianNpcs;
                 totalStructures += result.hearthianStructures;
                 totalSkeletons += result.nomaiSkeletons;
@@ -60,63 +62,80 @@ namespace Return
             }
         }
 
-        private static CleanupResult ApplyCleanupPass()
+        private static IEnumerator ApplyCleanupPassChunked(
+            CleanupResult result
+        )
         {
-            CleanupResult result = new CleanupResult();
             HashSet<GameObject> targets = new HashSet<GameObject>();
             Transform[] transforms =
                 Resources.FindObjectsOfTypeAll<Transform>();
 
-            foreach (Transform candidate in transforms)
+            int processed = 0;
+            while (processed < transforms.Length)
             {
-                if (!IsLiveSceneObject(candidate) ||
-                    IsProtectedGameplayObject(candidate))
+                int end = Mathf.Min(
+                    processed + CleanupBatchSize,
+                    transforms.Length
+                );
+                for (int index = processed; index < end; index++)
                 {
-                    continue;
-                }
+                    Transform candidate = transforms[index];
+                    if (!IsLiveSceneObject(candidate) ||
+                        IsProtectedGameplayObject(candidate))
+                    {
+                        continue;
+                    }
 
-                CleanupCategory category = Classify(candidate);
-                if (category == CleanupCategory.None ||
-                    (category == CleanupCategory.HearthianStructure &&
-                        IsCampfireRelated(candidate)))
-                {
-                    continue;
-                }
+                    CleanupCategory category = Classify(candidate);
+                    if (category == CleanupCategory.None ||
+                        (category == CleanupCategory.HearthianStructure &&
+                            IsCampfireRelated(candidate)))
+                    {
+                        continue;
+                    }
 
-                if (!targets.Add(candidate.gameObject))
-                {
-                    continue;
-                }
+                    if (!targets.Add(candidate.gameObject))
+                    {
+                        continue;
+                    }
 
-                ReturnEraRemovedMarker marker = candidate.GetComponent<
-                    ReturnEraRemovedMarker>();
-                if (marker == null)
-                {
-                    marker = candidate.gameObject.AddComponent<
+                    ReturnEraRemovedMarker marker = candidate.GetComponent<
                         ReturnEraRemovedMarker>();
-                }
+                    if (marker == null)
+                    {
+                        marker = candidate.gameObject.AddComponent<
+                            ReturnEraRemovedMarker>();
+                    }
 
-                if (candidate.gameObject.activeSelf)
-                {
-                    candidate.gameObject.SetActive(false);
-                }
+                    if (candidate.gameObject.activeSelf)
+                    {
+                        candidate.gameObject.SetActive(false);
+                    }
 
-                if (marker.wasAlreadyCounted)
-                {
-                    continue;
+                    if (marker.wasAlreadyCounted)
+                    {
+                        continue;
+                    }
+                    marker.wasAlreadyCounted = true;
+                    switch (category)
+                    {
+                        case CleanupCategory.HearthianNpc:
+                            result.hearthianNpcs++;
+                            break;
+                        case CleanupCategory.HearthianStructure:
+                            result.hearthianStructures++;
+                            break;
+                        case CleanupCategory.NomaiSkeleton:
+                            result.nomaiSkeletons++;
+                            break;
+                    }
                 }
-                marker.wasAlreadyCounted = true;
-                switch (category)
+                processed = end;
+                if (processed < transforms.Length)
                 {
-                    case CleanupCategory.HearthianNpc:
-                        result.hearthianNpcs++;
-                        break;
-                    case CleanupCategory.HearthianStructure:
-                        result.hearthianStructures++;
-                        break;
-                    case CleanupCategory.NomaiSkeleton:
-                        result.nomaiSkeletons++;
-                        break;
+                    // Spread the full-scene walk across frames so the
+                    // opening and Scene 6 loads do not hitch.
+                    yield return null;
                 }
             }
 
@@ -133,8 +152,6 @@ namespace Return
                     tower.enabled = false;
                 }
             }
-
-            return result;
         }
 
         private static CleanupCategory Classify(Transform candidate)
@@ -407,7 +424,7 @@ namespace Return
             NomaiSkeleton
         }
 
-        private struct CleanupResult
+        private class CleanupResult
         {
             public int hearthianNpcs;
             public int hearthianStructures;

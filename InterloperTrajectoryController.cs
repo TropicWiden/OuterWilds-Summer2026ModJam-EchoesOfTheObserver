@@ -10,14 +10,31 @@ namespace Return
     {
         private const string SettingsFileName = "interloper-orbit.json";
 
+        private static float _sceneSixEpoch = float.NaN;
+
         public static float TerminalLoopTimeSeconds { get; private set; } =
             1320f;
+
+        /// <summary>
+        /// Seconds elapsed since the Scene Six trajectory was applied. This is
+        /// the mod's own stopwatch, anchored to the moment Brittle Hollow
+        /// gameplay starts, so time spent in Scenes 1-5 can never leak into
+        /// the revival countdown or the Interloper schedule.
+        /// </summary>
+        public static float GetSceneSixElapsedSeconds()
+        {
+            if (float.IsNaN(_sceneSixEpoch))
+            {
+                return 0f;
+            }
+            return Mathf.Max(0f, Time.timeSinceLevelLoad - _sceneSixEpoch);
+        }
 
         public static int GetRevivalMinutesRemaining()
         {
             float secondsRemaining = Mathf.Max(
                 0f,
-                TerminalLoopTimeSeconds - TimeLoop.GetSecondsElapsed()
+                TerminalLoopTimeSeconds - GetSceneSixElapsedSeconds()
             );
             return Mathf.CeilToInt(secondsRemaining / 60f);
         }
@@ -68,7 +85,10 @@ namespace Return
                 return;
             }
 
-            float currentLoopSeconds = TimeLoop.GetSecondsElapsed();
+            // Scene Six is its own clock: the Interloper schedule starts at
+            // zero right now, never inheriting time spent in Scenes 1-5.
+            _sceneSixEpoch = Time.timeSinceLevelLoad;
+            float currentLoopSeconds = 0f;
             float secondsToIntercept =
                 settings.interceptTimeMinutes * 60f -
                 currentLoopSeconds;

@@ -1,4 +1,4 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using OWML.Common;
 using System;
 using System.Collections;
@@ -80,6 +80,7 @@ namespace Return
         private float _nextCometCheckTime;
         private float _nextCometLookupTime;
         private float _nextPortalCarrierCheckTime;
+        private float _nextPrisonLookupTime;
 
         internal void Initialize(ReturnMod mod)
         {
@@ -103,6 +104,7 @@ namespace Return
             _nextCometCheckTime = 0f;
             _nextCometLookupTime = 0f;
             _nextPortalCarrierCheckTime = 0f;
+            _nextPrisonLookupTime = 0f;
             StartCoroutine(Prepare(_generation));
         }
 
@@ -867,8 +869,10 @@ namespace Return
                 {
                     _prisonBodyHidden = true;
                 }
-                else
+                else if (Time.realtimeSinceStartup >= _nextPrisonLookupTime)
                 {
+                    _nextPrisonLookupTime =
+                        Time.realtimeSinceStartup + 0.25f;
                     Transform prisonBody = FindLiveTransform(PrisonBodyName);
                     if (prisonBody != null)
                     {

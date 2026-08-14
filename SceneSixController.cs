@@ -70,14 +70,43 @@ namespace Return
             // methods and New Horizons' final solar-system setup.
             yield return new WaitForSecondsRealtime(1f);
 
-            Transform spawn = null;
-            float deadline = Time.realtimeSinceStartup + 15f;
-            while (spawn == null && Time.realtimeSinceStartup < deadline)
+            // The Statue Island stays frozen through Scenes 2-5 so the
+            // dialogue cannot be interrupted by fall damage. Release it now
+            // that the Scene Six loop has loaded.
+            SceneTwoController.UnfreezeStatueIsland();
+
+            OWRigidbody brittleHollow = null;
+            float bodyDeadline = Time.realtimeSinceStartup + 15f;
+            while (brittleHollow == null &&
+                Time.realtimeSinceStartup < bodyDeadline)
             {
-                spawn = FindBrittleHollowGravityCannonSpawn();
+                brittleHollow = FindBody("BrittleHollow_Body");
+                if (brittleHollow == null)
+                {
+                    yield return new WaitForSecondsRealtime(0.1f);
+                }
+            }
+
+            if (brittleHollow == null)
+            {
+                mod.ModHelper.Console.WriteLine(
+                    "[RETURN SCENE 6] Could not find BrittleHollow_Body.",
+                    MessageType.Error
+                );
+                yield break;
+            }
+
+            Transform spawn = null;
+            float spawnDeadline = Time.realtimeSinceStartup + 15f;
+            while (spawn == null &&
+                Time.realtimeSinceStartup < spawnDeadline)
+            {
+                spawn = FindBrittleHollowGravityCannonSpawn(
+                    brittleHollow.transform
+                );
                 if (spawn == null)
                 {
-                    yield return null;
+                    yield return new WaitForSecondsRealtime(0.1f);
                 }
             }
 
@@ -86,16 +115,6 @@ namespace Return
                 mod.ModHelper.Console.WriteLine(
                     "[RETURN SCENE 6] Could not find " +
                     "SPAWN_GravityCannon on Brittle Hollow.",
-                    MessageType.Error
-                );
-                yield break;
-            }
-
-            OWRigidbody brittleHollow = FindBody("BrittleHollow_Body");
-            if (brittleHollow == null)
-            {
-                mod.ModHelper.Console.WriteLine(
-                    "[RETURN SCENE 6] Could not find BrittleHollow_Body.",
                     MessageType.Error
                 );
                 yield break;
@@ -165,7 +184,7 @@ namespace Return
                 yield return new WaitForFixedUpdate();
             }
 
-            ForceGravityCannonSectorLoaded();
+            ForceGravityCannonSectorLoaded(brittleHollow);
             GameObject revivalComputer = CreateRevivalComputer(
                 mod,
                 brittleHollow
@@ -261,12 +280,10 @@ namespace Return
             }
 
             foreach (Transform candidate in
-                Resources.FindObjectsOfTypeAll<Transform>())
+                brittleHollow.GetComponentsInChildren<Transform>(true))
             {
                 if (candidate != null &&
-                    candidate.gameObject.scene.IsValid() &&
-                    candidate.name == "Return_RevivalComputer" &&
-                    IsChildOf(candidate, brittleHollow.transform))
+                    candidate.name == "Return_RevivalComputer")
                 {
                     return candidate.gameObject;
                 }
@@ -412,13 +429,15 @@ namespace Return
             Transform brittleHollow
         )
         {
+            if (brittleHollow == null)
+            {
+                return null;
+            }
             foreach (Sector candidate in
-                Resources.FindObjectsOfTypeAll<Sector>())
+                brittleHollow.GetComponentsInChildren<Sector>(true))
             {
                 if (candidate != null &&
-                    candidate.gameObject.scene.IsValid() &&
-                    candidate.name == "Sector_GravityCannon" &&
-                    IsChildOf(candidate.transform, brittleHollow))
+                    candidate.name == "Sector_GravityCannon")
                 {
                     return candidate;
                 }
@@ -430,13 +449,15 @@ namespace Return
             Transform brittleHollow
         )
         {
+            if (brittleHollow == null)
+            {
+                return null;
+            }
             foreach (Transform candidate in
-                Resources.FindObjectsOfTypeAll<Transform>())
+                brittleHollow.GetComponentsInChildren<Transform>(true))
             {
                 if (candidate != null &&
-                    candidate.gameObject.scene.IsValid() &&
-                    candidate.name == "Interactables_GravityCannon" &&
-                    IsChildOf(candidate, brittleHollow))
+                    candidate.name == "Interactables_GravityCannon")
                 {
                     return candidate;
                 }
@@ -461,15 +482,11 @@ namespace Return
             AddDetectorToVolume(gravity, playerDetector);
 
             foreach (PlanetoidRuleset ruleset in
-                Resources.FindObjectsOfTypeAll<PlanetoidRuleset>())
+                brittleHollow.GetComponentsInChildren<PlanetoidRuleset>(
+                    true
+                ))
             {
-                if (ruleset != null &&
-                    ruleset.gameObject.scene.IsValid() &&
-                    ruleset.enabled &&
-                    IsChildOf(
-                        ruleset.transform,
-                        brittleHollow.transform
-                    ))
+                if (ruleset != null && ruleset.enabled)
                 {
                     AddDetectorToVolume(ruleset, playerDetector);
                 }
@@ -685,24 +702,21 @@ namespace Return
             }
         }
 
-        private static void ForceGravityCannonSectorLoaded()
+        private static void ForceGravityCannonSectorLoaded(
+            OWRigidbody brittleHollow
+        )
         {
             PlayerSectorDetector playerDetector =
                 Locator.GetPlayerSectorDetector();
-            if (playerDetector == null)
+            if (playerDetector == null || brittleHollow == null)
             {
                 return;
             }
 
             foreach (Sector sector in
-                Resources.FindObjectsOfTypeAll<Sector>())
+                brittleHollow.GetComponentsInChildren<Sector>(true))
             {
-                if (sector == null ||
-                    !sector.gameObject.scene.IsValid() ||
-                    !IsChildOf(
-                        sector.transform,
-                        FindBody("BrittleHollow_Body")?.transform
-                    ))
+                if (sector == null)
                 {
                     continue;
                 }
@@ -923,25 +937,21 @@ namespace Return
             );
         }
 
-        private static Transform FindBrittleHollowGravityCannonSpawn()
+        private static Transform FindBrittleHollowGravityCannonSpawn(
+            Transform brittleHollow
+        )
         {
-            foreach (Transform candidate in
-                Resources.FindObjectsOfTypeAll<Transform>())
+            if (brittleHollow == null)
             {
-                if (candidate == null ||
-                    !candidate.gameObject.scene.IsValid() ||
-                    candidate.name != "SPAWN_GravityCannon")
+                return null;
+            }
+            foreach (Transform candidate in
+                brittleHollow.GetComponentsInChildren<Transform>(true))
+            {
+                if (candidate != null &&
+                    candidate.name == "SPAWN_GravityCannon")
                 {
-                    continue;
-                }
-                Transform current = candidate;
-                while (current != null)
-                {
-                    if (current.name == "BrittleHollow_Body")
-                    {
-                        return candidate;
-                    }
-                    current = current.parent;
+                    return candidate;
                 }
             }
             return null;

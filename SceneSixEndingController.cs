@@ -269,7 +269,8 @@ namespace Return
                 _mod.ModHelper.Console.WriteLine(
                     "[RETURN LOOP RECOVERY] Player revived at the " +
                     "Brittle Hollow checkpoint; loop seconds=" +
-                    TimeLoop.GetSecondsElapsed().ToString("F2") + ".",
+                    InterloperTrajectoryController
+                        .GetSceneSixElapsedSeconds().ToString("F2") + ".",
                     MessageType.Success
                 );
             }
