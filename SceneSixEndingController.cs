@@ -238,6 +238,7 @@ namespace Return
                     );
                 Quaternion worldRotation =
                     brittleHollow.GetRotation() * RevivalLocalRotation;
+                ReturnPortalPlayerDetachment.DetachFromPlayerBeforeRevive();
                 playerBody.WarpToPositionRotation(
                     worldPosition,
                     worldRotation

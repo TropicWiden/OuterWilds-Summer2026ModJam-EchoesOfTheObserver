@@ -1,4 +1,4 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using OWML.Common;
 using System;
 using System.Collections;
@@ -32,6 +32,8 @@ namespace Return
         private static bool _movementLocked;
         private static int _generation;
         private static CharacterDialogueTree _dialogue;
+        private static bool _audioMutedForEnding;
+        private static float _savedSfxVolume = 1f;
         private static PlayerCameraEffectController _cameraEffects;
 
         internal static bool TryIntercept()
@@ -80,6 +82,7 @@ namespace Return
         )
         {
             TimeLoop.SetTimeLoopEnabled(false);
+            MuteEndingAudio();
             ReticleController.Hide();
             PromptManager prompts = Locator.GetPromptManager();
             if (prompts != null)
@@ -236,7 +239,7 @@ namespace Return
             try
             {
                 SceneSixEndingController.BeginVictoryEnding();
-                ReleaseDialogueState();
+                ReleaseMovementAndEyes();
             }
             finally
             {
@@ -265,6 +268,7 @@ namespace Return
                 );
             Quaternion worldRotation =
                 brittleHollow.GetRotation() * RevivalLocalRotation;
+            ReturnPortalPlayerDetachment.DetachFromPlayerBeforeRevive();
             playerBody.WarpToPositionRotation(
                 worldPosition,
                 worldRotation
@@ -286,6 +290,95 @@ namespace Return
             Physics.SyncTransforms();
         }
 
+        internal static void ReleasePauseForCredits()
+        {
+            ReleaseDialogueState();
+        }
+
+        internal static void RestoreEndingAudio()
+        {
+            if (!_audioMutedForEnding)
+            {
+                return;
+            }
+            _audioMutedForEnding = false;
+            try
+            {
+                OWAudioMixer mixer = Locator.GetAudioMixer();
+                if (mixer != null)
+                {
+                    mixer.SetMasterSFXVolume(_savedSfxVolume);
+                }
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN ENDING AUDIO] Restore failed safely: " +
+                    exception,
+                    MessageType.Error
+                );
+            }
+        }
+
+        private static void MuteEndingAudio()
+        {
+            if (_audioMutedForEnding)
+            {
+                return;
+            }
+            _audioMutedForEnding = true;
+            _savedSfxVolume = 1f;
+            try
+            {
+                OWAudioMixer mixer = Locator.GetAudioMixer();
+                if (mixer == null)
+                {
+                    return;
+                }
+                AudioParameter sfxParameter = Traverse.Create(mixer)
+                    .Field("_masterSFXVolume")
+                    .GetValue<AudioParameter>();
+                if (sfxParameter != null)
+                {
+                    object raw = Traverse.Create(sfxParameter)
+                        .Field("_value")
+                        .GetValue();
+                    if (raw is float value && value >= 0f)
+                    {
+                        _savedSfxVolume = value;
+                    }
+                }
+                mixer.SetMasterSFXVolume(0f);
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN ENDING AUDIO] Mute failed safely: " +
+                    exception,
+                    MessageType.Error
+                );
+            }
+        }
+
+        private static void ReleaseMovementAndEyes()
+        {
+            if (_movementLocked)
+            {
+                PlayerCharacterController playerController =
+                    Locator.GetPlayerController();
+                if (playerController != null)
+                {
+                    playerController.UnlockMovement();
+                }
+                _movementLocked = false;
+            }
+
+            if (_cameraEffects != null)
+            {
+                _cameraEffects.OpenEyes(0.01f, false);
+                _cameraEffects = null;
+            }
+        }
         private static void ReleaseDialogueState()
         {
             if (_pausedForDialogue)
@@ -356,6 +449,19 @@ namespace Return
         private static void Postfix(OWScene newScene)
         {
             SceneSixVictoryDialogueController.Reset();
+        }
+    }
+
+    [HarmonyPatch(typeof(ReturnMod), "OnCompleteSceneLoad")]
+    internal static class ReturnEndingAudioRestorePatch
+    {
+        private static void Postfix(OWScene newScene)
+        {
+            if (newScene != OWScene.Credits_Fast &&
+                newScene != OWScene.Credits_Final)
+            {
+                SceneSixVictoryDialogueController.RestoreEndingAudio();
+            }
         }
     }
 }

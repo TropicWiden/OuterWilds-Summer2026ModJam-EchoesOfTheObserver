@@ -156,9 +156,9 @@ namespace Return
                 translations.GetLanguage() ==
                     TextTranslation.Language.CHINESE_SIMPLE)
             {
-                return "1.4亿年后";
+                return "143亿年后";
             }
-            return "140 Million Years Later";
+            return "14.3 Billion years later";
         }
 
         private void OnStartSceneLoad(OWScene previousScene, OWScene newScene)

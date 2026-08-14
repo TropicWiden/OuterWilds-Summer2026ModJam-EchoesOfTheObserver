@@ -103,12 +103,140 @@ namespace Return
     }
 
     /// <summary>
+    /// Safety net: before the player is teleported to the Brittle Hollow
+    /// checkpoint, detach any portal carrier that is still anchored to the
+    /// player so it cannot be dragged along with the revival warp.
+    /// </summary>
+    internal static class ReturnPortalPlayerDetachment
+    {
+        public static void DetachFromPlayerBeforeRevive()
+        {
+            try
+            {
+                OWRigidbody playerBody = Locator.GetPlayerBody();
+                if (playerBody == null)
+                {
+                    return;
+                }
+
+                int detached = 0;
+                foreach (ReturnPortalEndpoint endpoint in
+                    Resources.FindObjectsOfTypeAll<ReturnPortalEndpoint>())
+                {
+                    if (endpoint == null)
+                    {
+                        continue;
+                    }
+
+                    ReturnPortalHostBinding binding =
+                        endpoint.GetComponent<ReturnPortalHostBinding>();
+                    if (binding == null || !binding.IsHost(playerBody))
+                    {
+                        continue;
+                    }
+
+                    ProbeAnchor anchor =
+                        endpoint.GetComponentInChildren<ProbeAnchor>(true);
+                    if (anchor != null && anchor.IsAnchored())
+                    {
+                        anchor.UnanchorFromSurface();
+                    }
+                    binding.Clear();
+                    detached++;
+                }
+
+                if (detached > 0)
+                {
+                    ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                        "[RETURN PORTAL HOST] Detached " + detached +
+                        " portal carrier(s) from the player before " +
+                        "the checkpoint warp.",
+                        MessageType.Success
+                    );
+                }
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN PORTAL HOST] Could not detach portal carriers " +
+                    "before the checkpoint warp: " + exception.Message,
+                    MessageType.Warning
+                );
+            }
+        }
+    }
+
+    /// <summary>
     /// Captures the exact surface body selected by the stock scout anchoring
     /// code. This works for planets as well as the ship's exterior/interior.
     /// </summary>
     [HarmonyPatch(typeof(ProbeAnchor), "AnchorToObject")]
     internal static class ReturnPortalAnchorHostPatch
     {
+        private static bool Prefix(
+            ProbeAnchor __instance,
+            GameObject hitObject
+        )
+        {
+            try
+            {
+                if (__instance == null || hitObject == null)
+                {
+                    return true;
+                }
+
+                OWRigidbody portalBody =
+                    __instance.GetAttachedOWRigidbody();
+                ReturnPortalEndpoint endpoint = portalBody == null
+                    ? null
+                    : portalBody.GetComponent<ReturnPortalEndpoint>();
+                if (endpoint == null)
+                {
+                    return true;
+                }
+
+                OWRigidbody playerBody = Locator.GetPlayerBody();
+                Transform playerTransform = Locator.GetPlayerTransform();
+                if (playerBody == null && playerTransform == null)
+                {
+                    return true;
+                }
+
+                OWRigidbody hitBody = hitObject.GetAttachedOWRigidbody();
+                bool hitPlayer = hitBody == playerBody ||
+                    (playerTransform != null &&
+                        hitObject.transform.IsChildOf(playerTransform));
+                if (!hitPlayer)
+                {
+                    return true;
+                }
+
+                ReturnPortalHostBinding binding =
+                    endpoint.GetComponent<ReturnPortalHostBinding>();
+                if (binding != null)
+                {
+                    binding.Clear();
+                }
+
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN PORTAL HOST] Blocked anchoring type=" +
+                    endpoint.PortalType + " to the player.",
+                    MessageType.Success
+                );
+                return false;
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN PORTAL HOST] Player-anchor guard failed; " +
+                    "falling back to the original anchor logic: " +
+                    exception.Message,
+                    MessageType.Warning
+                );
+                return true;
+            }
+        }
+
         private static void Postfix(
             ProbeAnchor __instance,
             GameObject hitObject
@@ -313,21 +441,10 @@ namespace Return
     }
 
     /// <summary>
-    /// The protected controller originally admitted only the Interloper. Once
-    /// host filtering is in place, every non-host AstroObject may use the same
-    /// position/orientation/velocity-preserving transport path.
+    /// Admission for transported objects now lives in
+    /// ReturnPortalTransportVolume.CanTransportAstroObject: every AstroObject
+    /// except the Sun and Giant's Deep may be transported by the black hole.
     /// </summary>
-    [HarmonyPatch(
-        typeof(ReturnPortalTransportVolume),
-        "CanTransportAstroObject"
-    )]
-    internal static class ReturnPortalAstroObjectAdmissionPatch
-    {
-        private static void Postfix(ref bool __result)
-        {
-            __result = true;
-        }
-    }
 
     /// <summary>
     /// Supplements Unity trigger callbacks with a small, allocation-free
@@ -350,6 +467,7 @@ namespace Return
         private Action<Collider> _forwardTrigger;
         private bool _bufferWarningWritten;
         private bool _failed;
+        private float _scanTimer;
 
         public void Initialize(ReturnPortalTransportVolume volume)
         {
@@ -415,6 +533,13 @@ namespace Return
             {
                 return;
             }
+
+            _scanTimer += Time.fixedDeltaTime;
+            if (_scanTimer < 0.1f)
+            {
+                return;
+            }
+            _scanTimer = 0f;
 
             Vector3 center = transform.TransformPoint(_trigger.center);
             Vector3 scale = transform.lossyScale;

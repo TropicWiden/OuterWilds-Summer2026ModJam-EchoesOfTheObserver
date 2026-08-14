@@ -78,7 +78,7 @@
     "$RETURN_VICTORY_DIALOGUE_18": "YOU: It is your curiosity that gives the universe meaning, not the universe that defines you."
   },
   "UIDictionary": {
-    "$RETURN_INTRO_AGE": "140 Million Years Later",
+    "$RETURN_INTRO_AGE": "14.3 Billion years later",
     "$RETURN_PORTAL_SELECT_PROMPT": "Select portal: black / white   <CMD1> <CMD2>",
     "$RETURN_PORTAL_REVIVE_PROMPT": "Revive   <CMD>",
     "$RETURN_PORTAL_LAUNCH_BLACK": "Launch black-hole endpoint   <CMD>",

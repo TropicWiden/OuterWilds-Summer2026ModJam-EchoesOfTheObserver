@@ -78,7 +78,7 @@
     "$RETURN_VICTORY_DIALOGUE_18": "你：是你们的好奇心在赋予宇宙意义，而不是宇宙在定义你们。"
   },
   "UIDictionary": {
-    "$RETURN_INTRO_AGE": "1.4亿年后",
+    "$RETURN_INTRO_AGE": "143亿年后",
     "$RETURN_PORTAL_SELECT_PROMPT": "选择端点：黑洞 / 白洞   <CMD1> <CMD2>",
     "$RETURN_PORTAL_REVIVE_PROMPT": "复活   <CMD>",
     "$RETURN_PORTAL_LAUNCH_BLACK": "发射黑洞端点   <CMD>",

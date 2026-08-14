@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Outer-Wilds-New-Horizons/new-horizons/main/NewHorizons/Schemas/body_schema.json",
+  "name": "Giants Deep",
+  "starSystem": "SolarSystem",
+  "Bramble": {
+    "nodes": [
+      {
+        "name": "Return111_BramblePrisonEntrance",
+        "linksTo": "Return111BramblePrison",
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "rotation": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "scale": 0.75,
+        "possibleExits": [1]
+      }
+    ]
+  },
+  "removeChildren": [
+    "Sector_GD/Sector_GDCore/Terrain_GDCore/BakedTerrain_CoreGroup1",
+    "Sector_GD/Sector_GDCore/Terrain_GDCore/BakedTerrain_CoreGroup2",
+    "Sector_GD/Sector_GDCore/Terrain_GDCore/BakedTerrain_CoreGroup3"
+  ]
+}

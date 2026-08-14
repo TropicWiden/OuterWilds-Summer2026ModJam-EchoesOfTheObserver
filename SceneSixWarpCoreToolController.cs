@@ -1,4 +1,4 @@
-using HarmonyLib;
+﻿using HarmonyLib;
 using OWML.Common;
 using System;
 using System.Collections;
@@ -22,15 +22,23 @@ namespace Return
     {
         private static ReturnPortalEndpoint _blackEndpoint;
         private static ReturnPortalEndpoint _whiteEndpoint;
+        internal static readonly List<ReturnPortalEndpoint> ActiveEndpoints =
+            new List<ReturnPortalEndpoint>();
 
         public ReturnPortalType PortalType { get; private set; }
+        public bool Launched { get; set; }
 
         public OWRigidbody Body { get; private set; }
 
         public void Initialize(ReturnPortalType portalType)
         {
             PortalType = portalType;
+            Launched = false;
             Body = GetComponent<OWRigidbody>();
+            if (!ActiveEndpoints.Contains(this))
+            {
+                ActiveEndpoints.Add(this);
+            }
             if (portalType == ReturnPortalType.Black)
             {
                 _blackEndpoint = this;
@@ -54,6 +62,7 @@ namespace Return
 
         private void OnDestroy()
         {
+            ActiveEndpoints.Remove(this);
             if (_blackEndpoint == this)
             {
                 _blackEndpoint = null;
@@ -126,6 +135,12 @@ namespace Return
                 yield break;
             }
 
+            if (Build111SimpleCorePrisonController.IsBodyAbsorbed(
+                _endpoint.Body))
+            {
+                yield break;
+            }
+
             if (_owCollider != null)
             {
                 _owCollider.SetActivation(true);
@@ -190,9 +205,18 @@ namespace Return
 
         private static bool CanTransportAstroObject(OWRigidbody body)
         {
+            if (body == null)
+            {
+                return false;
+            }
             AstroObject astroObject = body.GetComponent<AstroObject>();
-            return astroObject == null ||
-                astroObject.GetAstroObjectName() == AstroObject.Name.Comet;
+            if (astroObject == null)
+            {
+                return true;
+            }
+            AstroObject.Name name = astroObject.GetAstroObjectName();
+            return name != AstroObject.Name.Sun &&
+                name != AstroObject.Name.GiantsDeep;
         }
 
         private void TryTransportOWRigidbody(
@@ -500,8 +524,7 @@ namespace Return
 
         private void ApplyLabel()
         {
-            if (_marker == null || _mod == null ||
-                _mod.NewHorizons == null)
+            if (_marker == null || _mod == null)
             {
                 return;
             }
@@ -509,8 +532,10 @@ namespace Return
             string key = _portalType == ReturnPortalType.Black
                 ? "$RETURN_PORTAL_MARKER_BLACK"
                 : "$RETURN_PORTAL_MARKER_WHITE";
-            string label = _mod.NewHorizons.GetTranslationForUI(key);
-            if (string.IsNullOrEmpty(label))
+            string label = _mod.NewHorizons == null
+                ? key
+                : _mod.NewHorizons.GetTranslationForUI(key);
+            if (string.IsNullOrEmpty(label) || label == key)
             {
                 label = key;
             }
@@ -534,7 +559,6 @@ namespace Return
     /// </summary>
     internal sealed class ReturnPortalMapMarker : MonoBehaviour
     {
-        private ReturnMod _mod;
         private ReturnPortalType _portalType;
         private MapMarkerManager _manager;
         private CanvasMapMarker _marker;
@@ -546,7 +570,6 @@ namespace Return
             OWRigidbody targetBody
         )
         {
-            _mod = mod;
             _portalType = portalType;
             MapController mapController = Locator.GetMapController();
             _manager = mapController == null
@@ -587,15 +610,9 @@ namespace Return
 
         private string GetLabel()
         {
-            string key = _portalType == ReturnPortalType.Black
+            return _portalType == ReturnPortalType.Black
                 ? "$RETURN_PORTAL_MARKER_BLACK"
                 : "$RETURN_PORTAL_MARKER_WHITE";
-            if (_mod == null || _mod.NewHorizons == null)
-            {
-                return key;
-            }
-            string label = _mod.NewHorizons.GetTranslationForUI(key);
-            return string.IsNullOrEmpty(label) ? key : label;
         }
 
         private void OnMarkerDestroyed(CanvasMapMarker marker)
@@ -821,6 +838,151 @@ namespace Return
             StartCoroutine(LaunchPortal(portalType));
         }
 
+        /// <summary>
+        /// Restores the stock scout launch state on a cloned carrier. A clone
+        /// made from a currently-launched scout copies an already-enabled
+        /// collider, which makes ProbeAnchor skip ActivateCollider() and its
+        /// "IgnoreProbeCollider" broadcast; that leaves the carrier able to
+        /// physically hit and kill the player. Disable the collider and age
+        /// the launch time so the vanilla grace period and broadcast run.
+        /// </summary>
+        private static void DisableStockProbeMapMarker(GameObject carrier)
+        {
+            if (carrier == null)
+            {
+                return;
+            }
+            foreach (MapMarker marker in
+                carrier.GetComponentsInChildren<MapMarker>(true))
+            {
+                if (marker == null)
+                {
+                    continue;
+                }
+                try
+                {
+                    Traverse markerTraverse = Traverse.Create(marker);
+                    markerTraverse.Field("_disableMapMarker").SetValue(true);
+                    CanvasMapMarker canvasMarker = markerTraverse
+                        .Field("_canvasMarker")
+                        .GetValue<CanvasMapMarker>();
+                    if (canvasMarker != null)
+                    {
+                        MapController mapController =
+                            Locator.GetMapController();
+                        MapMarkerManager manager = mapController == null
+                            ? null
+                            : mapController.GetMarkerManager();
+                        manager?.UnregisterMarker(canvasMarker);
+                        UnityEngine.Object.Destroy(canvasMarker);
+                    }
+                    marker.enabled = false;
+                }
+                catch (Exception exception)
+                {
+                    ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                        "[RETURN PORTAL MARKER] Could not disable the " +
+                        "stock scout map marker: " + exception.Message,
+                        MessageType.Warning
+                    );
+                }
+            }
+        }
+
+        private void PreparePortalCarrierForLaunch(GameObject carrier)
+        {
+            ProbeAnchor anchor =
+                carrier.GetComponentInChildren<ProbeAnchor>(true);
+            if (anchor == null)
+            {
+                return;
+            }
+
+            Collider collider = anchor.GetCollider();
+            if (collider != null)
+            {
+                collider.enabled = false;
+            }
+
+            Traverse.Create(anchor)
+                .Field("_launchTime")
+                .SetValue(float.NegativeInfinity);
+        }
+
+        /// <summary>
+        /// Makes every physical collider on the carrier ignore the player's
+        /// colliders, then broadcasts the stock probe-ignore event so other
+        /// listeners (such as the ship) also ignore the cloned carrier.
+        /// </summary>
+        private void IgnoreCarrierCollisionsWithPlayer(
+            GameObject carrier,
+            OWRigidbody playerBody
+        )
+        {
+            if (carrier == null || playerBody == null)
+            {
+                return;
+            }
+
+            Collider[] carrierColliders =
+                carrier.GetComponentsInChildren<Collider>(true);
+            Collider[] playerColliders =
+                playerBody.GetComponentsInChildren<Collider>(true);
+            int ignoredPairs = 0;
+            foreach (Collider carrierCollider in carrierColliders)
+            {
+                if (carrierCollider == null || carrierCollider.isTrigger)
+                {
+                    continue;
+                }
+                foreach (Collider playerCollider in playerColliders)
+                {
+                    if (playerCollider == null)
+                    {
+                        continue;
+                    }
+                    Physics.IgnoreCollision(
+                        carrierCollider,
+                        playerCollider,
+                        true
+                    );
+                    ignoredPairs++;
+                }
+            }
+
+            ProbeAnchor anchor =
+                carrier.GetComponentInChildren<ProbeAnchor>(true);
+            Collider anchorCollider =
+                anchor == null ? null : anchor.GetCollider();
+            if (anchorCollider != null)
+            {
+                try
+                {
+                    GlobalMessenger<Collider>.FireEvent(
+                        "IgnoreProbeCollider",
+                        anchorCollider
+                    );
+                }
+                catch (Exception exception)
+                {
+                    _mod?.ModHelper.Console.WriteLine(
+                        "[RETURN PORTAL LAUNCH] The probe-ignore broadcast " +
+                        "failed for the cloned carrier: " + exception.Message,
+                        MessageType.Warning
+                    );
+                }
+            }
+
+            if (ignoredPairs > 0)
+            {
+                _mod?.ModHelper.Console.WriteLine(
+                    "[RETURN PORTAL LAUNCH] Carrier colliders ignore the " +
+                    "player; pairs=" + ignoredPairs + ".",
+                    MessageType.Success
+                );
+            }
+        }
+
         private IEnumerator LaunchPortal(ReturnPortalType portalType)
         {
             _launchInProgress = true;
@@ -861,6 +1023,9 @@ namespace Return
                     endpoint = clone.AddComponent<ReturnPortalEndpoint>();
                 }
                 endpoint.Initialize(portalType);
+                DisableStockProbeMapMarker(clone);
+
+                PreparePortalCarrierForLaunch(clone);
 
                 // SurveyorProbe.Start establishes its light volume and then
                 // stores the probe in the retrieved state. Let that one-time
@@ -907,6 +1072,7 @@ namespace Return
                     false,
                     0f
                 );
+                IgnoreCarrierCollisionsWithPlayer(clone, playerBody);
                 ReturnPortalEndpoint endpoint =
                     clone.GetComponent<ReturnPortalEndpoint>();
                 InstallPortalVisualAndVolume(
@@ -914,6 +1080,7 @@ namespace Return
                     endpoint,
                     portalType
                 );
+                endpoint.Launched = true;
                 ReturnPortalMarkerLabel markerLabel =
                     clone.GetComponent<ReturnPortalMarkerLabel>();
                 if (markerLabel == null)
@@ -1325,6 +1492,7 @@ namespace Return
                     );
                 Quaternion worldRotation =
                     brittleHollow.GetRotation() * RevivalLocalRotation;
+                ReturnPortalPlayerDetachment.DetachFromPlayerBeforeRevive();
                 playerBody.WarpToPositionRotation(
                     worldPosition,
                     worldRotation
@@ -1668,3 +1836,4 @@ namespace Return
     }
 
 }
+

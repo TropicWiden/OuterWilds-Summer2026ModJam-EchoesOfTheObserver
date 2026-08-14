@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -240,6 +240,7 @@ namespace Return
                 // it before loading credits or it will cover both credits and
                 // the title screen forever.
                 __instance.HideBeforeCredits();
+                SceneSixVictoryDialogueController.ReleasePauseForCredits();
                 SceneSixVictoryCreditsState
                     .UseFastCreditsWithFinalMusic =
                         __instance.UsesFinalCreditsMusic();

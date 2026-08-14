@@ -1,0 +1,66 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Outer-Wilds-New-Horizons/new-horizons/main/NewHorizons/Schemas/body_schema.json",
+  "name": "Return111BramblePrison",
+  "starSystem": "SolarSystem",
+  "canShowOnTitle": false,
+  "Bramble": {
+    "dimension": {
+      "allowedEntrances": [1],
+      "vinePrefab": "none",
+      "radius": 0.01,
+      "fogDensity": 8,
+      "linksTo": "Return111_PrisonLoopNode",
+      "fogTint": {
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0
+      }
+    },
+    "nodes": [
+      {
+        "name": "Return111_PrisonLoopNode",
+        "linksTo": "Return111BramblePrison",
+        "scale": 0.01,
+        "possibleExits": [1],
+        "hasFogLight": false,
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "fogTint": {
+          "r": 0,
+          "g": 0,
+          "b": 0,
+          "a": 0
+        }
+      }
+    ]
+  },
+  "Volumes": {
+    "mapRestrictionVolumes": [
+      {
+        "radius": 240
+      }
+    ]
+  },
+  "MapMarker": {
+    "enabled": false
+  },
+  "ReferenceFrame": {
+    "enabled": false,
+    "hideInMap": true
+  },
+  "Orbit": {
+    "primaryBody": "Giants Deep",
+    "staticPosition": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "isStatic": true,
+    "showOrbitLine": false,
+    "siderealPeriod": 0
+  }
+}
