@@ -1,5 +1,8 @@
 ![Echoes of the Observer](banner.jpg)
 
+So sorry to everyone who has been struggling with the bugs. I am currently working on a complete remake of the mod, and I plan to release the new version on the 18th. 
+The remake will fix all the known bugs and provide more hints to help you reach the true ending.
+
 # Echoes of the Observer
 
 A story mod for *Outer Wilds*, created by Known-Mouse for the Summer 2026 Outer Wilds Mod Jam.
