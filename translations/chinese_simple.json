@@ -80,6 +80,7 @@
   "UIDictionary": {
     "$RETURN_INTRO_AGE": "143亿年后",
     "$RETURN_PORTAL_SELECT_PROMPT": "选择端点：黑洞 / 白洞   <CMD1> <CMD2>",
+    "$RETURN_PORTAL_RECALL_PROMPT": "\u56de\u6536\u9ed1\u6d1e\u4e0e\u767d\u6d1e   <CMD>",
     "$RETURN_PORTAL_REVIVE_PROMPT": "复活   <CMD>",
     "$RETURN_PORTAL_LAUNCH_BLACK": "发射黑洞端点   <CMD>",
     "$RETURN_PORTAL_LAUNCH_WHITE": "发射白洞端点   <CMD>",
@@ -90,6 +91,7 @@
     "$RETURN_PORTAL_LAUNCHED_BLACK": "黑洞端点发射完成。",
     "$RETURN_PORTAL_LAUNCHED_WHITE": "白洞端点发射完成。",
     "$RETURN_PORTAL_LAUNCH_FAILED": "端点发射失败。",
+    "$RETURN_PORTAL_RECALLED": "\u5df2\u56de\u6536\u9ed1\u6d1e\u4e0e\u767d\u6d1e\u3002",
     "$RETURN_PORTAL_REVIVED": "复活完成。",
     "$RETURN_PORTAL_REVIVE_FAILED": "复活装置启动失败。",
     "$RETURN_PORTAL_MARKER_BLACK": "黑洞端点",

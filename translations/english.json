@@ -80,6 +80,7 @@
   "UIDictionary": {
     "$RETURN_INTRO_AGE": "14.3 Billion years later",
     "$RETURN_PORTAL_SELECT_PROMPT": "Select portal: black / white   <CMD1> <CMD2>",
+    "$RETURN_PORTAL_RECALL_PROMPT": "Recall black & white holes   <CMD>",
     "$RETURN_PORTAL_REVIVE_PROMPT": "Revive   <CMD>",
     "$RETURN_PORTAL_LAUNCH_BLACK": "Launch black-hole endpoint   <CMD>",
     "$RETURN_PORTAL_LAUNCH_WHITE": "Launch white-hole endpoint   <CMD>",
@@ -90,6 +91,7 @@
     "$RETURN_PORTAL_LAUNCHED_BLACK": "Black-hole endpoint launched.",
     "$RETURN_PORTAL_LAUNCHED_WHITE": "White-hole endpoint launched.",
     "$RETURN_PORTAL_LAUNCH_FAILED": "The portal endpoint failed to launch.",
+    "$RETURN_PORTAL_RECALLED": "Black and white holes recalled.",
     "$RETURN_PORTAL_REVIVED": "Revival complete.",
     "$RETURN_PORTAL_REVIVE_FAILED": "The revival device failed to activate.",
     "$RETURN_PORTAL_MARKER_BLACK": "Black-Hole Endpoint",

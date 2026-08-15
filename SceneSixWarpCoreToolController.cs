@@ -667,6 +667,7 @@ namespace Return
         private ScreenPrompt _blackLaunchPrompt;
         private ScreenPrompt _whiteLaunchPrompt;
         private ScreenPrompt _revivePrompt;
+        private ScreenPrompt _recallPrompt;
         private bool _promptsRegistered;
         private bool _coreVisualShown = true;
 
@@ -686,7 +687,7 @@ namespace Return
                 "[RETURN WARP TOOL] Controls attached to " +
                 core.gameObject.name +
                 "; black=toolOptionLeft; white=toolOptionRight; " +
-                "revive=toolOptionDown.",
+                "revive=toolOptionDown; recall=toolOptionUp.",
                 MessageType.Success
             );
         }
@@ -713,6 +714,10 @@ namespace Return
                 InputLibrary.toolOptionDown,
                 Translate("$RETURN_PORTAL_REVIVE_PROMPT")
             );
+            _recallPrompt = new ScreenPrompt(
+                InputLibrary.toolOptionUp,
+                Translate("$RETURN_PORTAL_RECALL_PROMPT")
+            );
 
             SetPromptVisibility(false);
             promptManager.AddScreenPrompt(
@@ -725,6 +730,10 @@ namespace Return
             );
             promptManager.AddScreenPrompt(
                 _revivePrompt,
+                PromptPosition.UpperRight
+            );
+            promptManager.AddScreenPrompt(
+                _recallPrompt,
                 PromptPosition.UpperRight
             );
             _promptsRegistered = true;
@@ -765,6 +774,9 @@ namespace Return
             bool revive = OWInput.IsNewlyPressed(
                 InputLibrary.toolOptionDown
             );
+            bool recall = OWInput.IsNewlyPressed(
+                InputLibrary.toolOptionUp
+            );
 
             if (launchBlack)
             {
@@ -784,6 +796,12 @@ namespace Return
                 {
                     StartCoroutine(RevivePlayer());
                 }
+            }
+
+            if (recall)
+            {
+                InputLibrary.toolOptionUp.ConsumeInput();
+                RecallPortals();
             }
         }
 
@@ -836,6 +854,82 @@ namespace Return
                 return;
             }
             StartCoroutine(LaunchPortal(portalType));
+        }
+
+        /// <summary>
+        /// Recalls every launched portal endpoint. Destroying the scout
+        /// carrier also removes its transport volume, singularity visuals,
+        /// HUD label and map marker, and the tool is then free to launch a
+        /// fresh black hole or white hole.
+        /// </summary>
+        private void RecallPortals()
+        {
+            if (_launchInProgress)
+            {
+                return;
+            }
+
+            List<ReturnPortalEndpoint> endpoints =
+                new List<ReturnPortalEndpoint>(
+                    ReturnPortalEndpoint.ActiveEndpoints
+                );
+            int recalled = 0;
+            foreach (ReturnPortalEndpoint endpoint in endpoints)
+            {
+                if (endpoint == null || !endpoint.Launched)
+                {
+                    continue;
+                }
+
+                GameObject carrier = endpoint.gameObject;
+                endpoint.Launched = false;
+                ReturnPortalTransportVolume[] volumes =
+                    carrier.GetComponentsInChildren<
+                        ReturnPortalTransportVolume>(true);
+                foreach (ReturnPortalTransportVolume volume in volumes)
+                {
+                    if (volume == null)
+                    {
+                        continue;
+                    }
+                    OWCollider owCollider =
+                        volume.GetComponent<OWCollider>();
+                    if (owCollider != null)
+                    {
+                        owCollider.SetActivation(false);
+                    }
+                    SphereCollider sphere =
+                        volume.GetComponent<SphereCollider>();
+                    if (sphere != null)
+                    {
+                        sphere.enabled = false;
+                    }
+                }
+                UnityEngine.Object.Destroy(carrier);
+                recalled++;
+            }
+
+            _blackLaunched = false;
+            _whiteLaunched = false;
+            RefreshPromptText();
+
+            if (recalled > 0)
+            {
+                PostNotification("$RETURN_PORTAL_RECALLED");
+                _mod.ModHelper.Console.WriteLine(
+                    "[RETURN PORTAL RECALL] Recalled " + recalled +
+                    " portal endpoint(s); relaunch is now available.",
+                    MessageType.Success
+                );
+            }
+            else
+            {
+                _mod.ModHelper.Console.WriteLine(
+                    "[RETURN PORTAL RECALL] No launched portal endpoint " +
+                    "was available to recall.",
+                    MessageType.Info
+                );
+            }
         }
 
         /// <summary>
@@ -1586,6 +1680,14 @@ namespace Return
                     ? ScreenPrompt.DisplayState.GrayedOut
                     : ScreenPrompt.DisplayState.Normal
             );
+            _recallPrompt.SetText(Translate(
+                "$RETURN_PORTAL_RECALL_PROMPT"
+            ));
+            _recallPrompt.SetDisplayState(
+                (_blackLaunched || _whiteLaunched)
+                    ? ScreenPrompt.DisplayState.Normal
+                    : ScreenPrompt.DisplayState.GrayedOut
+            );
         }
 
         private void SetPromptVisibility(bool visible)
@@ -1598,6 +1700,7 @@ namespace Return
             _blackLaunchPrompt.SetVisibility(visible);
             _whiteLaunchPrompt.SetVisibility(visible);
             _revivePrompt.SetVisibility(visible);
+            _recallPrompt.SetVisibility(visible);
         }
 
         private string Translate(string key)
@@ -1668,11 +1771,16 @@ namespace Return
                 {
                     manager.RemoveScreenPrompt(_revivePrompt);
                 }
+                if (_recallPrompt != null)
+                {
+                    manager.RemoveScreenPrompt(_recallPrompt);
+                }
             }
             _promptsRegistered = false;
             _blackLaunchPrompt = null;
             _whiteLaunchPrompt = null;
             _revivePrompt = null;
+            _recallPrompt = null;
         }
     }
 
