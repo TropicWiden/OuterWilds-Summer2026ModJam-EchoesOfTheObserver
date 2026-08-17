@@ -1,7 +1,7 @@
 ![Echoes of the Observer](banner.jpg)
 
-So sorry to everyone who has been struggling with the bugs. I am currently working on a complete remake of the mod, and I plan to release the new version on the 18th. 
-The remake will fix all the known bugs and provide more hints to help you reach the true ending.
+The remake is now complete!
+Note: When loading into the game for the first time, you may need to wait about 20 seconds (depending on your hardware). This is completely normal.
 
 # Echoes of the Observer
 
