@@ -56,3 +56,7 @@ If the beginning leaves you confused, try giving the little four-eyed blue fish 
 - *Outer Wilds* and its original assets belong to Mobius Digital and their respective rights holders
 
 The source code in this repository is licensed under the MIT License. This repository does not grant any additional rights to assets originating from *Outer Wilds*.
+
+## Special Thanks:
+Because I'm not very good at art, all the images in the mod were created with Gemini.
+Thank you to everyone who helped report bugs!
