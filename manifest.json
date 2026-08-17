@@ -4,7 +4,7 @@
     "author":  "Known-Mouse",
     "name":  "Echoes of the Observer",
     "uniqueName":  "Known-Mouse.EchoesOfTheObserver",
-    "version":  "0.1.4",
+    "version":  "0.1.5",
     "owmlVersion":  "2.15.1",
     "dependencies":  [
                          "xen.NewHorizons"
