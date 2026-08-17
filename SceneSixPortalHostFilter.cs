@@ -244,9 +244,14 @@ namespace Return
         {
             try
             {
-                if (__instance == null ||
-                    hitObject == null ||
-                    !__instance.IsAnchored())
+                if (__instance == null || hitObject == null)
+                {
+                    return;
+                }
+
+                TrySuppressIntegrityNotification(__instance);
+
+                if (!__instance.IsAnchored())
                 {
                     return;
                 }
@@ -285,6 +290,57 @@ namespace Return
                 ReturnMod.Instance?.ModHelper.Console.WriteLine(
                     "[RETURN PORTAL HOST] Could not record the anchor host: " +
                     exception.Message,
+                    MessageType.Warning
+                );
+            }
+        }
+
+        /// <summary>
+        /// Portal carriers use the stock ProbeAnchor, which posts a pinned
+        /// "surface integrity" HUD notification whenever it anchors to a
+        /// breakable fragment or the Ring World dam. Players do not need that
+        /// scout-oriented readout for the black/white hole endpoints, so the
+        /// notification is unpinned immediately after every portal anchor.
+        /// </summary>
+        private static void TrySuppressIntegrityNotification(
+            ProbeAnchor anchor
+        )
+        {
+            try
+            {
+                OWRigidbody portalBody = anchor.GetAttachedOWRigidbody();
+                ReturnPortalEndpoint endpoint = portalBody == null
+                    ? null
+                    : portalBody.GetComponent<ReturnPortalEndpoint>();
+                if (endpoint == null)
+                {
+                    return;
+                }
+
+                Traverse anchorTraverse = Traverse.Create(anchor);
+                bool posted = anchorTraverse.Field("_notificationPosted")
+                    .GetValue<bool>();
+                if (!posted)
+                {
+                    return;
+                }
+
+                NotificationData notification = anchorTraverse
+                    .Field("_probeNotification")
+                    .GetValue<NotificationData>();
+                if (notification != null)
+                {
+                    NotificationManager.SharedInstance?
+                        .UnpinNotification(notification);
+                }
+                anchorTraverse.Field("_notificationPosted")
+                    .SetValue(false);
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN PORTAL HOST] Integrity notification " +
+                    "suppression failed: " + exception.Message,
                     MessageType.Warning
                 );
             }

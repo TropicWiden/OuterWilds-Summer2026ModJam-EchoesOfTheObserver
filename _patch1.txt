@@ -1,0 +1,39 @@
+*** Begin Patch
+*** Update File: F:\\OWJAM\\try\\OuterWildsMod1\\Build118Source\\SceneSixPortalDimensionsAndWorldCleanupController.cs
+@@@
+-        private ReturnPortalType _portalType;
+-        private bool _coreRenderingApplied;
++        private ReturnPortalType _portalType;
+@@@
+-            RemoveInheritedSingularityLod(visual);
+-            ExpandRenderBoundsOnce(visual);
+-            if (IsInsideGiantsDeepWater(visual.position))
+-            {
+-                ConfigureCorePortalRendering(visual);
+-                ConfigureOverlayPortalRendering(visual);
+-                _coreRenderingApplied = true;
+-            }
+-            SetSingularityRadius(visual, TargetVisualRadius);
+-            ApplyBlackTransportRadius();
+-            StartCoroutine(WatchForGiantsDeepWater(visual));
++            RemoveInheritedSingularityLod(visual);
++            ExpandRenderBoundsOnce(visual);
++            SetSingularityRadius(visual, TargetVisualRadius);
++            ApplyBlackTransportRadius();
+@@@
+-        private IEnumerator WatchForGiantsDeepWater(Transform visual)
+-        {
+-            while (visual != null && !_coreRenderingApplied)
+-            {
+-                if (IsInsideGiantsDeepWater(visual.position))
+-                {
+-                    _coreRenderingApplied = true;
+-                    ConfigureCorePortalRendering(visual);
+-                    ConfigureOverlayPortalRendering(visual);
+-                    yield break;
+-                }
+-                yield return new WaitForSecondsRealtime(0.5f);
+-            }
+-        }
+-
+*** End Patch

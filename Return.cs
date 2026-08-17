@@ -10,8 +10,11 @@ namespace Return
 {
     public class ReturnMod : ModBehaviour
     {
-        private static readonly Vector3 MineSpawnLocalPosition =
-            new Vector3(-33.204f, -3.038f, -111.262f);
+        // The player spawns on the mine floor plane, 3 m from the fish-box center,
+        // facing the box. The scene-1 boundary sphere is centered on the box
+        // with radius 4 m, so this spawn lies just inside it.
+        private const float MineSpawnRadiusFromBox = 3f;
+        private const float MineBoxCenterHeight = 0.65f;
 
         private static readonly Quaternion MineSpawnLocalRotation =
             new Quaternion(-0.2706f, -0.5436f, 0.6632f, 0.4375f);
@@ -62,6 +65,12 @@ namespace Return
             new Harmony("Known-Mouse.Return").PatchAll(Assembly.GetExecutingAssembly());
             LoadManager.OnStartSceneLoad += OnStartSceneLoad;
             LoadManager.OnCompleteSceneLoad += OnCompleteSceneLoad;
+        }
+
+        public override void SetupPauseMenu(IPauseMenuManager pauseMenu)
+        {
+            base.SetupPauseMenu(pauseMenu);
+            SceneSixPauseAndHintController.SetupPauseMenu(this, pauseMenu);
         }
 
         public void OnDestroy()
@@ -229,23 +238,36 @@ namespace Return
 
             yield return new WaitForSeconds(2f);
 
-            Vector3 spawnPosition = _timberHearthBody.transform.TransformPoint(
-                MineSpawnLocalPosition
-            );
-            Quaternion spawnRotation = _timberHearthBody.GetRotation() *
-                                       MineSpawnLocalRotation;
-
             CreateSceneOnePrototype();
             PrepareMineNomaiAndDialogue();
             CreateNomaiWallLighting();
 
+            Vector3 mineSpawnRootLocal = new Vector3(
+                0f,
+                MineBoxCenterHeight,
+                -MineSpawnRadiusFromBox
+            );
+            Vector3 mineSpawnLocal =
+                _sceneOneRoot.transform.localPosition +
+                _sceneOneRoot.transform.localRotation * mineSpawnRootLocal;
+            Vector3 spawnPosition = _timberHearthBody.transform.TransformPoint(
+                mineSpawnLocal
+            );
+            Quaternion spawnRotation = _timberHearthBody.GetRotation() *
+                                       _sceneOneRoot.transform.localRotation;
+
             OWRigidbody playerBody = Locator.GetPlayerBody();
             WarpPlayer(playerBody, spawnPosition, spawnRotation);
-            ApplyFishPlayerScale(playerBody);
+            RestorePlayerBodyScale(playerBody);
             EnableFishSwimming(playerBody);
             HidePlayerBodyModel(playerBody);
             DisablePlayerFlashlight();
             DisableMineGeysers(spawnPosition);
+
+            SceneOnePrisonController.Arm(
+                this,
+                _sceneOneRoot.transform
+            );
 
             yield return new WaitForFixedUpdate();
             yield return null;
@@ -1038,16 +1060,16 @@ namespace Return
             }
         }
 
-        private static void ApplyFishPlayerScale(OWRigidbody playerBody)
+        private static void RestorePlayerBodyScale(OWRigidbody playerBody)
         {
             if (playerBody == null)
             {
                 return;
             }
 
-            // A one-fifth player produces a consistent five-times-larger world:
-            // mine geometry, water, props, and Nomai all keep matching scales.
-            playerBody.transform.localScale = Vector3.one * 0.2f;
+            // Scene 1 keeps the player at normal size; the low fish-eye view
+            // is provided by the scene boundary's feet-level camera instead.
+            playerBody.transform.localScale = Vector3.one;
         }
 
         private static void EnableFishSwimming(OWRigidbody playerBody)
@@ -1284,8 +1306,9 @@ namespace Return
     {
         private static bool Prefix()
         {
-            // The protagonist is a fish and cannot suffocate underwater.
-            return false;
+            // Scenes 1-5 play as a fish that cannot suffocate; in Scene 6
+            // the protagonist is a Hearthian and vanilla oxygen applies.
+            return SceneSixController.IsActive;
         }
     }
 

@@ -20,6 +20,7 @@ namespace Return
         private const float GiantsDeepCoreRadius = 400f;
 
         private ReturnPortalType _portalType;
+        private bool _coreRenderingApplied;
 
         public void Initialize(ReturnPortalType portalType)
         {
@@ -73,15 +74,17 @@ namespace Return
 
             RemoveInheritedSingularityLod(visual);
             ExpandRenderBoundsOnce(visual);
-            if (IsInsideGiantsDeepCore(visual.position))
+            if (IsInsideGiantsDeepWater(visual.position))
             {
                 ConfigureCorePortalRendering(visual);
+                _coreRenderingApplied = true;
             }
             SetSingularityRadius(visual, TargetVisualRadius);
             ApplyBlackTransportRadius();
+            StartCoroutine(WatchForGiantsDeepWater(visual));
         }
 
-        private static bool IsInsideGiantsDeepCore(Vector3 position)
+        internal static bool IsInsideGiantsDeepWater(Vector3 position)
         {
             AstroObject giantsDeep = Locator.GetAstroObject(
                 AstroObject.Name.GiantsDeep
@@ -89,17 +92,78 @@ namespace Return
             OWRigidbody giantsDeepBody = giantsDeep == null
                 ? null
                 : giantsDeep.GetOWRigidbody();
-            return giantsDeepBody != null &&
-                Vector3.Distance(
+            if (giantsDeepBody == null)
+            {
+                return false;
+            }
+
+            // Fast path for the core region; the ocean itself extends far
+            // beyond the core, so also accept any Giant's Deep collider
+            // (the ocean fluid volume above all) that contains the portal.
+            if (Vector3.Distance(
                     position,
                     giantsDeepBody.GetPosition()
-                ) < GiantsDeepCoreRadius;
+                ) < GiantsDeepCoreRadius)
+            {
+                return true;
+            }
+
+            foreach (Collider collider in
+                giantsDeepBody.GetComponentsInChildren<Collider>(true))
+            {
+                if (collider != null &&
+                    collider.bounds.Contains(position))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
-        private static void ConfigureCorePortalRendering(
+        private IEnumerator WatchForGiantsDeepWater(Transform visual)
+        {
+            while (visual != null && !_coreRenderingApplied)
+            {
+                if (IsInsideGiantsDeepWater(visual.position))
+                {
+                    _coreRenderingApplied = true;
+                    ConfigureCorePortalRendering(visual);
+                    yield break;
+                }
+                yield return new WaitForSecondsRealtime(0.5f);
+            }
+        }
+
+        internal static void ConfigureCorePortalRendering(
             Transform visual
         )
         {
+            bool alreadyApplied = true;
+            foreach (Renderer renderer in
+                visual.GetComponentsInChildren<Renderer>(true))
+            {
+                foreach (Material material in renderer.sharedMaterials)
+                {
+                    if (material == null ||
+                        material.name.IndexOf(
+                            "_ReturnGiantsDeepCorePortal",
+                            StringComparison.Ordinal
+                        ) < 0)
+                    {
+                        alreadyApplied = false;
+                        break;
+                    }
+                }
+                if (!alreadyApplied)
+                {
+                    break;
+                }
+            }
+            if (alreadyApplied)
+            {
+                return;
+            }
+
             foreach (Renderer renderer in
                 visual.GetComponentsInChildren<Renderer>(true))
             {

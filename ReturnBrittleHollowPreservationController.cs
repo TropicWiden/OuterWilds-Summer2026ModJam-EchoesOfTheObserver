@@ -64,7 +64,7 @@ namespace Return
                 IsAttachedToBrittleHollow(fragment.transform);
         }
 
-        private static bool IsAttachedToBrittleHollow(Transform fragment)
+        internal static bool IsAttachedToBrittleHollow(Transform fragment)
         {
             for (Transform current = fragment;
                 current != null;
@@ -205,6 +205,79 @@ namespace Return
                         ReturnMeteorImpactFxSuppressor
                     >();
             return suppressor == null || !suppressor.SuppressImpactFx;
+        }
+    }
+
+    /// <summary>
+    /// Keeps Brittle Hollow in its loop-start state by stopping the
+    /// time-based Cannon Path collapse. These timed fragments (including
+    /// the gravity-cannon path) break on their own as the loop advances in
+    /// vanilla, then fall past the checkpoint and kill the player right
+    /// after every revive. Meteor damage is already suppressed above; this
+    /// closes the timer path so the planet never spontaneously
+    /// disintegrates by itself.
+    /// </summary>
+    [HarmonyPatch(
+        typeof(TimedFragmentIntegrity),
+        "CanBreak"
+    )]
+    internal static class ReturnTimedFragmentBreakSuppressionPatch
+    {
+        private static bool Prefix(
+            TimedFragmentIntegrity __instance,
+            ref bool __result
+        )
+        {
+            try
+            {
+                if (__instance != null &&
+                    LoadManager.GetCurrentScene() == OWScene.SolarSystem &&
+                    ReturnBrittleHollowMeteorImmunityPatch
+                        .IsAttachedToBrittleHollow(__instance.transform))
+                {
+                    __result = false;
+                    return false;
+                }
+            }
+            catch
+            {
+                // Preservation is optional and must never interrupt the
+                // stock fragment path.
+            }
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Cancels the timed break itself. TimedFragmentIntegrity.Awake
+    /// schedules OnLatestTimeReached at _latestTime, which zeroes the
+    /// fragment's integrity and detaches it. Skipping that callback keeps
+    /// every Cannon Path fragment attached for the whole loop.
+    /// </summary>
+    [HarmonyPatch(
+        typeof(TimedFragmentIntegrity),
+        "OnLatestTimeReached"
+    )]
+    internal static class ReturnTimedFragmentLatestTimeSuppressionPatch
+    {
+        private static bool Prefix(TimedFragmentIntegrity __instance)
+        {
+            try
+            {
+                if (__instance != null &&
+                    LoadManager.GetCurrentScene() == OWScene.SolarSystem &&
+                    ReturnBrittleHollowMeteorImmunityPatch
+                        .IsAttachedToBrittleHollow(__instance.transform))
+                {
+                    return false;
+                }
+            }
+            catch
+            {
+                // Preservation is optional and must never interrupt the
+                // stock fragment path.
+            }
+            return true;
         }
     }
 }

@@ -1,6 +1,7 @@
 using HarmonyLib;
 using OWML.Common;
 using System;
+using System.IO;
 using UnityEngine;
 
 namespace Return
@@ -24,9 +25,7 @@ namespace Return
             "&lt;TimeMinutesRemaining&gt; minutes.";
 
         private const string LegendText =
-            "An ancient legend passed down among the Nomai says that the " +
-            "core of Giant's Deep is a prison capable of containing " +
-            "anything.";
+            "If you feel lost, check your ship log and map.";
 
         internal static void MarkDeathEndingSeen()
         {
@@ -62,6 +61,43 @@ namespace Return
                 "the legend ring is unlocked for the next loop.",
                 MessageType.Success
             );
+        }
+
+        /// <summary>
+        /// Deletes the mod's own progress file (and clears the cached
+        /// in-memory flags) when a brand-new expedition is started, so the
+        /// new game begins with a completely fresh story state. The vanilla
+        /// player save is intentionally left untouched.
+        /// </summary>
+
+        internal static void ResetProgressState()
+        {
+            _storageChecked = false;
+            _storageUnlocked = false;
+
+            try
+            {
+                ReturnMod mod = ReturnMod.Instance;
+                string folder = mod?.ModHelper?.Manifest?.ModFolderPath;
+                if (string.IsNullOrEmpty(folder))
+                {
+                    return;
+                }
+
+                string filePath = Path.Combine(folder, ProgressFileName);
+                if (File.Exists(filePath))
+                {
+                    File.Delete(filePath);
+                }
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN BUILD118] Could not delete the mod progress " +
+                    "file for a new expedition: " + exception,
+                    MessageType.Warning
+                );
+            }
         }
 
         internal static void AddLegendRingIfUnlocked(

@@ -61,6 +61,7 @@ namespace Return
         {
             UnfreezeStatueIsland();
             RestoreTimePause();
+            SceneOnePrisonController.EndSceneOne();
             _transitionStarted = false;
             _sceneThreeStarted = false;
             _sceneRoot = null;
@@ -127,6 +128,8 @@ namespace Return
                 "[RETURN SCENE 2] Entering the Statue Workshop.",
                 MessageType.Success
             );
+
+            SceneOnePrisonController.EndSceneOne();
 
             PlayerCameraEffectController cameraEffects =
                 FindSceneComponent<PlayerCameraEffectController>();

@@ -106,6 +106,10 @@ namespace Return
                 MessageType.Info
             );
 
+            // The scene-2 placement debug HUD must not linger on screen
+            // during the cinematic scenes that follow.
+            PlacementController.ScenePlacementComponent.SuppressHud = true;
+
             // The player is physically standing on Statue Island while the
             // black-screen scenes play. Keep them hovering high above it so
             // the vanilla tornado toss can never kill them mid-dialogue.
@@ -471,7 +475,7 @@ namespace Return
             int pageNum
         )
         {
-            SceneDialogueBackgroundController.ShowPageForPage(pageNum);
+            SceneDialogueBackgroundController.ShowPageForPage(pageNum + 1);
         }
 
         private void SetSlide(Renderer renderer, int streamingId)

@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using OWML.Common;
 using System;
 using System.Collections;
@@ -22,7 +22,7 @@ namespace Return
         // soon as their centre enters the whole door region, otherwise a white
         // hole launched through the entrance flies away and lags the game.
         private static readonly Vector3 PortalCarrierContainmentHalfExtents =
-            new Vector3(370f, 380f, 130f);
+            new Vector3(430f, 430f, 180f);
         private const float CoreFallbackPadding = 5f;
         private const float VisualMaximumDiameter = 220f;
         private const float MinimumBodyMass = 0.000001f;
@@ -54,6 +54,25 @@ namespace Return
         };
 
         private static Build111SimpleCorePrisonController _instance;
+        // Carriers whose colliders already ignore Giant's Deep. Keeps the
+        // door-approach detector from re-running Physics.IgnoreCollision
+        // (and re-logging the same pair list) on every frame while a
+        // portal carrier is being absorbed.
+        private static readonly HashSet<int> _doorIgnoredCarrierIds =
+            new HashSet<int>();
+
+        /// <summary>
+        /// True while the player is absorbed (trapped) inside the core
+        /// prison. Other controllers use this to suppress conflicting inputs.
+        /// </summary>
+        public static bool IsPlayerTrapped
+        {
+            get
+            {
+                return _instance != null &&
+                    _instance._absorbedPlayer != null;
+            }
+        }
 
         private readonly Collider[] _overlapBuffer = new Collider[2048];
         private readonly HashSet<int> _initialOccupants =
@@ -81,7 +100,11 @@ namespace Return
         private float _nextCometLookupTime;
         private float _nextPortalCarrierCheckTime;
         private float _nextPrisonLookupTime;
-
+        private float _baselineGiantsDeepMass;
+        private float _baselineSurfaceAcceleration;
+        private float _baselineGravitationalMass;
+        private float _lastGravityNotificationTime;
+        private float _lastNotifiedGravity;
         internal void Initialize(ReturnMod mod)
         {
             _instance = this;
@@ -105,6 +128,11 @@ namespace Return
             _nextCometLookupTime = 0f;
             _nextPortalCarrierCheckTime = 0f;
             _nextPrisonLookupTime = 0f;
+            _baselineGiantsDeepMass = 0f;
+            _baselineSurfaceAcceleration = 0f;
+            _baselineGravitationalMass = 0f;
+            _lastGravityNotificationTime = 0f;
+            _lastNotifiedGravity = 0f;
             StartCoroutine(Prepare(_generation));
         }
 
@@ -117,6 +145,64 @@ namespace Return
         internal static void TryAbsorbTransportedBody(OWRigidbody body)
         {
             _instance?.TryAbsorbOWBody(body, requireColliderOverlap: false);
+        }
+
+        internal static void TryAbsorbBodyAtDoor(OWRigidbody body)
+        {
+            _instance?.TryAbsorbOWBody(
+                body,
+                requireColliderOverlap: false,
+                forceContainment: true
+            );
+        }
+
+        internal static void ApplyDoorContactCollisionIgnore(
+            OWRigidbody carrier
+        )
+        {
+            if (_instance == null || carrier == null ||
+                _instance._giantsDeep == null)
+            {
+                return;
+            }
+            if (!_doorIgnoredCarrierIds.Add(carrier.GetInstanceID()))
+            {
+                return;
+            }
+            Collider[] carrierColliders =
+                carrier.GetComponentsInChildren<Collider>(true);
+            Collider[] giantsDeepColliders =
+                _instance._giantsDeep.GetComponentsInChildren<Collider>(true);
+            int ignoredPairs = 0;
+            foreach (Collider carrierCollider in carrierColliders)
+            {
+                if (carrierCollider == null || carrierCollider.isTrigger)
+                {
+                    continue;
+                }
+                foreach (Collider gdCollider in giantsDeepColliders)
+                {
+                    if (gdCollider == null || gdCollider.isTrigger)
+                    {
+                        continue;
+                    }
+                    Physics.IgnoreCollision(
+                        carrierCollider,
+                        gdCollider,
+                        true
+                    );
+                    ignoredPairs++;
+                }
+            }
+            if (ignoredPairs > 0)
+            {
+                _instance._mod?.ModHelper.Console.WriteLine(
+                    "[RETURN BUILD111 PRISON] Door contact: carrier now " +
+                    "ignores Giant's Deep collision; pairs=" +
+                    ignoredPairs + ".",
+                    MessageType.Success
+                );
+            }
         }
 
         private IEnumerator Prepare(int generation)
@@ -153,6 +239,7 @@ namespace Return
                 yield break;
             }
 
+            CaptureGiantsDeepGravityBaseline();
             int terrainRemoved = RemoveCoreTerrain();
             _comet = InterloperTrajectoryController.FindBody("Comet_Body");
             CreateAbsorptionTrigger();
@@ -724,7 +811,10 @@ namespace Return
                         _comet.GetPosition(),
                         _giantsDeep.GetPosition()
                     ) <= 500f &&
-                    (IsBodyOverlappingCore(_comet) ||
+                    (IsPointInsidePortalContainment(
+                        _comet.GetPosition()
+                     ) ||
+                     IsBodyOverlappingCore(_comet) ||
                      IsPointInsideCore(_comet.GetPosition(), 0f)))
                 {
                     TryAbsorbOWBody(
@@ -745,7 +835,7 @@ namespace Return
             {
                 return;
             }
-            _nextPortalCarrierCheckTime = Time.unscaledTime + 0.1f;
+            _nextPortalCarrierCheckTime = Time.unscaledTime + 0.03f;
 
             List<ReturnPortalEndpoint> activeEndpoints =
                 ReturnPortalEndpoint.ActiveEndpoints;
@@ -775,9 +865,11 @@ namespace Return
 
                 Vector3 position = body.GetPosition();
                 bool insideDoor = IsPointInsidePortalContainment(position);
+                bool touchingDoor = !insideDoor &&
+                    IsBodyTouchingPortalContainment(body);
                 bool insideCore = IsPointInsideCore(position, 0f) ||
                     IsBodyOverlappingCore(body);
-                if (!insideDoor && !insideCore)
+                if (!insideDoor && !touchingDoor && !insideCore)
                 {
                     continue;
                 }
@@ -787,6 +879,7 @@ namespace Return
                     endpoint.PortalType + "; body=" + body.name +
                     "; position=" + position +
                     "; insideDoor=" + insideDoor +
+                    "; touchingDoor=" + touchingDoor +
                     "; insideCore=" + insideCore + ".",
                     MessageType.Success
                 );
@@ -811,6 +904,43 @@ namespace Return
             return Mathf.Abs(local.x) <= half.x &&
                 Mathf.Abs(local.y) <= half.y &&
                 Mathf.Abs(local.z) <= half.z;
+        }
+
+        private bool IsBodyTouchingPortalContainment(OWRigidbody body)
+        {
+            if (body == null || _areaTrigger == null)
+            {
+                return false;
+            }
+            Bounds doorBounds = new Bounds(
+                _areaTrigger.transform.position,
+                PortalCarrierContainmentHalfExtents * 2f
+            );
+            foreach (Collider collider in
+                body.GetComponentsInChildren<Collider>(true))
+            {
+                if (collider == null || collider.isTrigger)
+                {
+                    continue;
+                }
+                Bounds carrierBounds = collider.bounds;
+                float radius = Mathf.Max(
+                    carrierBounds.extents.x,
+                    Mathf.Max(
+                        carrierBounds.extents.y,
+                        carrierBounds.extents.z
+                    )
+                );
+                Bounds expanded = new Bounds(
+                    doorBounds.center,
+                    doorBounds.size + Vector3.one * (2f * radius + 60f)
+                );
+                if (expanded.Intersects(carrierBounds))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private bool IsPointInsideCore(Vector3 worldPoint, float padding)
@@ -905,17 +1035,23 @@ namespace Return
             }
 
             if (_revivalInProgress ||
-                !SceneSixWarpCoreToolController.IsReturnWarpCoreHeld() ||
-                !OWInput.IsNewlyPressed(
-                    InputLibrary.toolOptionDown,
-                    InputMode.All
-                ))
+                !SceneSixWarpCoreToolController.IsReturnWarpCoreHeld())
             {
                 return;
             }
 
-            InputLibrary.toolOptionDown.ConsumeInput();
-            StartCoroutine(ReviveAbsorbedPlayer());
+            // Build118: while trapped inside the prison the revive
+            // functions are disabled. The recall control stays available
+            // so launched portals can still be cleaned up.
+            if (OWInput.IsNewlyPressed(
+                    InputLibrary.toolOptionDown,
+                    InputMode.All
+                ))
+            {
+                InputLibrary.toolOptionDown.ConsumeInput();
+                SceneSixWarpCoreToolController.TryRecallPortals();
+                return;
+            }
         }
 
         private void LateUpdate()
@@ -933,7 +1069,8 @@ namespace Return
                     _absorbedBodies.RemoveAt(i);
                     continue;
                 }
-                prisoner.Body.transform.localPosition = Vector3.zero;
+                prisoner.Body.transform.localPosition =
+                    prisoner.ParkedLocalPosition ?? Vector3.zero;
                 prisoner.Body.transform.localRotation = Quaternion.identity;
             }
 
@@ -950,6 +1087,7 @@ namespace Return
             }
 
             if (_absorbedPlayer != null &&
+                !_absorbedPlayer.Body.IsSuspended() &&
                 (IsPointInsideCore(
                     _absorbedPlayer.Body.GetPosition(),
                     CoreFallbackPadding
@@ -1043,6 +1181,34 @@ namespace Return
             body.DisableCollisionDetection();
             HidePhysicalObject(body.gameObject);
 
+            bool isPortalCarrier =
+                body.GetComponent<ReturnPortalEndpoint>() != null;
+            Vector3 parkedLocal = Vector3.zero;
+            if (isPortalCarrier)
+            {
+                // Keep the portal carrier exactly where it entered the
+                // prison, pinned to Giant's Deep, so its singularity stays
+                // visible at the seed shell instead of vanishing at the
+                // core. Every other object still goes to the core and is
+                // hidden, so the prison keeps holding everything.
+                parkedLocal =
+                    _giantsDeep.transform.InverseTransformPoint(
+                        body.GetPosition()
+                    );
+                RestoreAbsorbedPortalPresentation(body.gameObject);
+                StartCoroutine(
+                    RestoreAbsorbedPortalPresentationDelayed(
+                        body.gameObject
+                    )
+                );
+                StartCoroutine(
+                    AbsorbPortalCarrierAfterVisualTimeout(
+                        body.gameObject,
+                        body
+                    )
+                );
+            }
+
             body.WarpToPositionRotation(
                 _giantsDeep.GetPosition(),
                 _giantsDeep.GetRotation()
@@ -1057,10 +1223,16 @@ namespace Return
             {
                 body.Suspend(_giantsDeep);
             }
-            body.transform.localPosition = Vector3.zero;
+            body.transform.localPosition = parkedLocal;
             body.transform.localRotation = Quaternion.identity;
             _absorbedBodies.Add(
-                new AbsorbedBody(body, transferredMass)
+                new AbsorbedBody(
+                    body,
+                    transferredMass,
+                    isPortalCarrier
+                        ? (Vector3?)parkedLocal
+                        : null
+                )
             );
 
             AstroObject astroObject = body.GetComponent<AstroObject>();
@@ -1141,7 +1313,18 @@ namespace Return
             );
             body.SetVelocity(_giantsDeep.GetVelocity());
             body.SetAngularVelocity(_giantsDeep.GetAngularVelocity());
+            if (body.IsSuspended())
+            {
+                body.ChangeSuspensionBody(_giantsDeep);
+            }
+            else
+            {
+                body.Suspend(_giantsDeep);
+            }
+            body.transform.localPosition = Vector3.zero;
+            body.transform.localRotation = Quaternion.identity;
             SceneSixEndingController.MarkPlayerPortalTransit();
+            StartCoroutine(ShowTrappedHintRepeatedly());
 
             _mod.ModHelper.Console.WriteLine(
                 "[RETURN BUILD111 ABSORBED] player=True; " +
@@ -1151,12 +1334,14 @@ namespace Return
             );
         }
 
-        private IEnumerator ReviveAbsorbedPlayer()
+        private IEnumerator ReviveAbsorbedPlayer(bool reviveAtShip = false)
         {
             _revivalInProgress = true;
             OWRigidbody brittleHollow = null;
+            OWRigidbody velocitySource = null;
             AbsorbedPlayer player = null;
             bool revived = false;
+            bool seatAtCockpit = false;
             try
             {
                 brittleHollow =
@@ -1171,29 +1356,101 @@ namespace Return
                 }
 
                 player = _absorbedPlayer;
-                Vector3 position =
-                    brittleHollow.transform.TransformPoint(
-                        RevivalLocalPosition
-                    );
-                Quaternion rotation =
-                    brittleHollow.GetRotation() * RevivalLocalRotation;
+                Vector3 position;
+                Quaternion rotation;
+                velocitySource = brittleHollow;
+                OWRigidbody shipBody = Locator.GetShipBody();
+                ShipCockpitController cockpit = null;
+                PlayerAttachPoint attachPoint = null;
+                if (reviveAtShip && shipBody != null &&
+                    !IsBodyAbsorbed(shipBody))
+                {
+                    cockpit = shipBody.GetComponent<ShipCockpitController>();
+                    if (cockpit == null)
+                    {
+                        cockpit = shipBody.GetComponentInChildren<
+                            ShipCockpitController>(true);
+                    }
+                    attachPoint = cockpit == null
+                        ? null
+                        : Traverse.Create(cockpit)
+                            .Field("_playerAttachPoint")
+                            .GetValue<PlayerAttachPoint>();
+                    if (attachPoint != null)
+                    {
+                        position = attachPoint.transform.position;
+                    }
+                    else
+                    {
+                        position =
+                            shipBody.GetPosition() +
+                            shipBody.transform.up * 4f;
+                    }
+                    rotation = shipBody.GetRotation();
+                    velocitySource = shipBody;
+                }
+                else
+                {
+                    position =
+                        brittleHollow.transform.TransformPoint(
+                            RevivalLocalPosition
+                        );
+                    rotation =
+                        brittleHollow.GetRotation() * RevivalLocalRotation;
+                }
                 ReturnPortalPlayerDetachment.DetachFromPlayerBeforeRevive();
-                player.Body.WarpToPositionRotation(position, rotation);
+                SceneSixController.ResetPlayerPhysicsForRevive(
+                    player.Body
+                );
+                player.Body.WarpToPositionRotation(
+                    position,
+                    rotation
+                );
+                Physics.SyncTransforms();
+
                 RestorePlayerState(player);
-                player.Body.SetVelocity(
-                    brittleHollow.GetPointVelocity(position)
+                SceneSixController.ClearGiantDeepVolumesFromPlayer(
+                    _giantsDeep
                 );
-                player.Body.SetAngularVelocity(
-                    brittleHollow.GetAngularVelocity()
+                SceneSixController.RestoreBrittleHollowVolumes(
+                    brittleHollow
                 );
+
+                SceneSixController.SyncPlayerVelocityToBody(
+                    player.Body,
+                    velocitySource
+                );
+                Physics.SyncTransforms();
 
                 PlayerLockOnTargeting lockOn =
                     Locator.GetPlayerTransform()
                         .GetComponent<PlayerLockOnTargeting>();
                 lockOn?.BreakLock();
                 SceneSixEndingController.ClearPlayerPortalTransit();
+                SceneSixEndingController.ArmPrisonReviveGrace(4f);
                 Physics.SyncTransforms();
-                if (!OWTime.IsPaused() && !PlayerState.InConversation())
+                if (reviveAtShip)
+                {
+                    SceneSixEndingController.RestorePlayerResourcesAndVisor();
+                    SceneSixController.RestoreShipOxygenVolumes(shipBody);
+                }
+                if (attachPoint != null && cockpit != null)
+                {
+                    // Buckle the player into the flight console so the
+                    // ship revive behaves like sitting down at the controls
+                    // (seatbelt fastened, cockpit camera, ship input mode)
+                    // instead of floating above the elevator.
+                    seatAtCockpit = true;
+                    Traverse.Create(cockpit)
+                        .Method("OnPressInteract")
+                        .GetValue();
+                }
+                SceneSixWarpCoreToolController.NormalizeShipEntranceForRevive(
+                    shipBody
+                );
+                if (!seatAtCockpit &&
+                    !OWTime.IsPaused() &&
+                    !PlayerState.InConversation())
                 {
                     OWInput.ChangeInputMode(InputMode.Character);
                 }
@@ -1202,8 +1459,9 @@ namespace Return
 
                 _mod.ModHelper.Console.WriteLine(
                     "[RETURN BUILD111 REVIVE] Player returned from " +
-                    "Area A to the Brittle Hollow checkpoint without " +
-                    "resetting loop time.",
+                    "Area A to the " +
+                    (reviveAtShip ? "ship" : "Brittle Hollow checkpoint") +
+                    " without resetting loop time.",
                     MessageType.Success
                 );
             }
@@ -1215,18 +1473,55 @@ namespace Return
                 );
             }
 
-            if (revived && player != null && brittleHollow != null)
+            if (revived && player != null && seatAtCockpit &&
+                velocitySource != null)
             {
-                yield return new WaitForFixedUpdate();
+                // Buckling happens through the vanilla attach flow, which
+                // may rewrite the player velocity. Re-assert the ship's
+                // point velocity for a few frames so unbuckling later cannot
+                // inherit the old planet's speed or gravity.
+                for (int frame = 0; frame < 8; frame++)
+                {
+                    yield return new WaitForFixedUpdate();
+                    if (player.Body != null && velocitySource != null)
+                    {
+                        SceneSixController.SyncPlayerVelocityToBody(
+                            player.Body,
+                            velocitySource
+                        );
+                    }
+                }
+            }
+
+            if (revived && player != null && brittleHollow != null &&
+                !seatAtCockpit)
+            {
+                yield return GuardRevivalVelocity(
+                    player.Body,
+                    velocitySource ?? brittleHollow,
+                    24,
+                    6f
+                );
+
                 if (player.Body != null)
                 {
                     Vector3 checkpointPosition =
                         player.Body.GetPosition();
                     player.Body.SetVelocity(
-                        brittleHollow.GetPointVelocity(checkpointPosition)
+                        velocitySource.GetPointVelocity(checkpointPosition)
                     );
                     player.Body.SetAngularVelocity(
-                        brittleHollow.GetAngularVelocity()
+                        velocitySource.GetAngularVelocity()
+                    );
+                    _mod.ModHelper.Console.WriteLine(
+                        "[RETURN BUILD111 REVIVE] Checkpoint velocity " +
+                        "applied: speed=" +
+                        player.Body.GetVelocity().magnitude.ToString(
+                            "F2",
+                            System.Globalization.CultureInfo.InvariantCulture
+                        ) + " m/s; suspended=" +
+                        player.Body.IsSuspended() + ".",
+                        MessageType.Success
                     );
                 }
             }
@@ -1235,14 +1530,189 @@ namespace Return
             _revivalInProgress = false;
         }
 
+        private IEnumerator ShowTrappedHintRepeatedly()
+        {
+            yield return new WaitForSecondsRealtime(0.8f);
+            while (_absorbedPlayer != null && !_revivalInProgress)
+            {
+                PostTrappedHintNotification();
+                yield return new WaitForSecondsRealtime(8f);
+            }
+        }
+
+        private IEnumerator ShowTrappedHintDialogue()
+        {
+            CharacterDialogueTree dialogue = null;
+            try
+            {
+                dialogue = CreateTrappedHintDialogue();
+            }
+            catch (Exception exception)
+            {
+                _mod?.ModHelper.Console.WriteLine(
+                    "[RETURN BUILD111 TRAPPED HINT] Dialogue setup " +
+                    "failed: " + exception,
+                    MessageType.Error
+                );
+                PostTrappedHintNotification();
+            }
+
+            if (dialogue != null)
+            {
+                try
+                {
+                    dialogue.StartConversation();
+                }
+                catch (Exception exception)
+                {
+                    _mod?.ModHelper.Console.WriteLine(
+                        "[RETURN BUILD111 TRAPPED HINT] Could not start " +
+                        "the dialogue: " + exception,
+                        MessageType.Error
+                    );
+                    PostTrappedHintNotification();
+                    dialogue = null;
+                }
+            }
+
+            if (dialogue != null)
+            {
+                float shownUntil = Time.realtimeSinceStartup + 6f;
+                while (dialogue.InConversation() &&
+                    Time.realtimeSinceStartup < shownUntil)
+                {
+                    yield return null;
+                }
+
+                try
+                {
+                    if (dialogue.InConversation())
+                    {
+                        dialogue.EndConversation();
+                    }
+                }
+                catch (Exception exception)
+                {
+                    _mod?.ModHelper.Console.WriteLine(
+                        "[RETURN BUILD111 TRAPPED HINT] Could not close " +
+                        "the dialogue: " + exception,
+                        MessageType.Error
+                    );
+                }
+
+                if (dialogue != null && dialogue.gameObject != null)
+                {
+                    UnityEngine.Object.Destroy(dialogue.gameObject);
+                }
+                _mod?.ModHelper.Console.WriteLine(
+                    "[RETURN BUILD111 TRAPPED HINT] Dialogue shown.",
+                    MessageType.Success
+                );
+            }
+        }
+
+        private CharacterDialogueTree CreateTrappedHintDialogue()
+        {
+            if (_mod == null || _mod.NewHorizons == null ||
+                _absorbedPlayer == null)
+            {
+                return null;
+            }
+
+            var spawned = _mod.NewHorizons.SpawnDialogue(
+                _mod,
+                _absorbedPlayer.Body.gameObject,
+                "dialogue/prison_trapped_hint.xml",
+                0f,
+                0f,
+                null,
+                0f
+            );
+            CharacterDialogueTree dialogue = spawned.Item1;
+            if (dialogue == null)
+            {
+                _mod.ModHelper.Console.WriteLine(
+                    "[RETURN BUILD111 TRAPPED HINT] The dialogue could " +
+                    "not be created; falling back to the notification.",
+                    MessageType.Warning
+                );
+                return null;
+            }
+
+            dialogue.gameObject.name =
+                "Return_PrisonTrappedHintDialogue";
+            return dialogue;
+        }
+
+        private void PostTrappedHintNotification()
+        {
+            string text = "$RETURN_PRISON_TRAPPED_HINT";
+            if (_mod.NewHorizons != null)
+            {
+                string translated =
+                    _mod.NewHorizons.GetTranslationForUI(text);
+                if (!string.IsNullOrEmpty(translated))
+                {
+                    text = translated;
+                }
+            }
+            NotificationManager.SharedInstance?.PostNotification(
+                new NotificationData(
+                    NotificationTarget.All,
+                    text,
+                    7f
+                )
+            );
+        }
+
         private void RestorePlayerAfterExternalRevival()
         {
             if (_absorbedPlayer == null)
             {
                 return;
             }
-            RestorePlayerState(_absorbedPlayer);
+            AbsorbedPlayer player = _absorbedPlayer;
+            OWRigidbody playerBody = player.Body;
+            OWRigidbody brittleHollow =
+                InterloperTrajectoryController.FindBody(
+                    "BrittleHollow_Body"
+                );
+            if (brittleHollow != null && playerBody != null)
+            {
+                SceneSixController.ResetPlayerPhysicsForRevive(playerBody);
+                Vector3 position =
+                    brittleHollow.transform.TransformPoint(
+                        RevivalLocalPosition
+                    );
+                Quaternion rotation =
+                    brittleHollow.GetRotation() * RevivalLocalRotation;
+                playerBody.WarpToPositionRotation(position, rotation);
+            }
+            RestorePlayerState(player);
             SceneSixEndingController.ClearPlayerPortalTransit();
+            if (brittleHollow != null && playerBody != null)
+            {
+                SceneSixController.ClearGiantDeepVolumesFromPlayer(
+                    _giantsDeep
+                );
+                SceneSixController.RestoreBrittleHollowVolumes(
+                    brittleHollow
+                );
+                SceneSixController.SyncPlayerVelocityToBody(
+                    playerBody,
+                    brittleHollow
+                );
+                StartCoroutine(
+                    GuardRevivalVelocity(
+                        playerBody,
+                        brittleHollow,
+                        24,
+                        6f
+                    )
+                );
+                SceneSixEndingController.ArmReviveImpactImmunity(12f);
+                SceneSixWarpCoreToolController.ClearShipEntranceState();
+            }
             _mod.ModHelper.Console.WriteLine(
                 "[RETURN BUILD111 REVIVE] External revival detected; " +
                 "player rendering, collision and mass were restored.",
@@ -1261,11 +1731,57 @@ namespace Return
             player.Restore();
         }
 
+        private static void SnapUnityBodyVelocity(OWRigidbody body)
+        {
+            if (body == null)
+            {
+                return;
+            }
+            Rigidbody unityBody = body.GetRigidbody();
+            if (unityBody != null && !unityBody.isKinematic)
+            {
+                unityBody.velocity = body.GetVelocity();
+                unityBody.angularVelocity = body.GetAngularVelocity();
+            }
+        }
+
+        private IEnumerator GuardRevivalVelocity(
+            OWRigidbody playerBody,
+            OWRigidbody brittleHollow,
+            int frameCount,
+            float deviationThreshold
+        )
+        {
+            for (int frame = 0; frame < frameCount; frame++)
+            {
+                yield return new WaitForFixedUpdate();
+                if (playerBody == null || brittleHollow == null)
+                {
+                    yield break;
+                }
+                Vector3 targetVelocity =
+                    brittleHollow.GetPointVelocity(
+                        playerBody.GetPosition()
+                    );
+                if (Vector3.Distance(
+                        playerBody.GetVelocity(),
+                        targetVelocity
+                    ) > deviationThreshold)
+                {
+                    playerBody.SetVelocity(targetVelocity);
+                    playerBody.SetAngularVelocity(
+                        brittleHollow.GetAngularVelocity()
+                    );
+                }
+            }
+        }
+
         private void AddMassToGiantDeep(float mass)
         {
             if (_giantsDeep != null && mass > 0f)
             {
                 _giantsDeep.SetMass(_giantsDeep.GetMass() + mass);
+                UpdateGiantsDeepGravity();
             }
         }
 
@@ -1279,7 +1795,175 @@ namespace Return
                         _giantsDeep.GetMass() - mass
                     )
                 );
+                UpdateGiantsDeepGravity();
             }
+        }
+
+        /// <summary>
+        /// Records Giant's Deep's original mass and gravity-volume values at
+        /// the start of the loop, so later mass transfers can scale the
+        /// displayed/effective surface gravity by currentMass / baselineMass.
+        /// </summary>
+        private void CaptureGiantsDeepGravityBaseline()
+        {
+            if (_giantsDeep == null)
+            {
+                return;
+            }
+            _baselineGiantsDeepMass = _giantsDeep.GetMass();
+            _baselineSurfaceAcceleration = 0f;
+            _baselineGravitationalMass = 0f;
+
+            GravityVolume primary = null;
+            foreach (GravityVolume volume in
+                _giantsDeep.GetComponentsInChildren<GravityVolume>(true))
+            {
+                if (volume == null)
+                {
+                    continue;
+                }
+                bool isPlanetVolume = Traverse.Create(volume)
+                    .Field("_isPlanetGravityVolume")
+                    .GetValue<bool>();
+                if (isPlanetVolume)
+                {
+                    primary = volume;
+                    break;
+                }
+            }
+            if (primary == null)
+            {
+                primary = _giantsDeep.GetAttachedGravityVolume();
+            }
+            if (primary != null)
+            {
+                Traverse traverse = Traverse.Create(primary);
+                _baselineSurfaceAcceleration =
+                    traverse.Field("_surfaceAcceleration")
+                        .GetValue<float>();
+                _baselineGravitationalMass =
+                    traverse.Field("_gravitationalMass")
+                        .GetValue<float>();
+            }
+            _lastGravityNotificationTime = 0f;
+            _lastNotifiedGravity = 0f;
+
+            _mod?.ModHelper.Console.WriteLine(
+                "[RETURN BUILD111 GRAVITY] baselineMass=" +
+                _baselineGiantsDeepMass.ToString("G9") +
+                "; surfaceAcceleration=" +
+                _baselineSurfaceAcceleration.ToString("F2") +
+                "; gravitationalMass=" +
+                _baselineGravitationalMass.ToString("G9") + ".",
+                MessageType.Success
+            );
+        }
+
+        /// <summary>
+        /// Re-scales every Giant's Deep planet gravity volume by the ratio
+        /// currentMass / baselineMass, then shows the new surface gravity on
+        /// screen so the change is visible.
+        /// </summary>
+        private void UpdateGiantsDeepGravity()
+        {
+            if (_giantsDeep == null || _baselineGiantsDeepMass <= 0f)
+            {
+                return;
+            }
+            float ratio = _giantsDeep.GetMass() / _baselineGiantsDeepMass;
+            if (ratio <= 0f || float.IsNaN(ratio) ||
+                float.IsInfinity(ratio))
+            {
+                return;
+            }
+
+            float newSurface = _baselineSurfaceAcceleration * ratio;
+            float newGravitationalMass =
+                _baselineGravitationalMass * ratio;
+            foreach (GravityVolume volume in
+                _giantsDeep.GetComponentsInChildren<GravityVolume>(true))
+            {
+                if (volume == null)
+                {
+                    continue;
+                }
+                Traverse traverse = Traverse.Create(volume);
+                bool isPlanetVolume = traverse
+                    .Field("_isPlanetGravityVolume")
+                    .GetValue<bool>();
+                if (!isPlanetVolume)
+                {
+                    continue;
+                }
+                traverse.Field("_surfaceAcceleration")
+                    .SetValue(newSurface);
+                bool setMass = traverse.Field("_setMass")
+                    .GetValue<bool>();
+                if (setMass)
+                {
+                    traverse.Field("_gravitationalMass")
+                        .SetValue(newGravitationalMass);
+                }
+            }
+
+            PostGravityUpdatedNotification(newSurface, ratio);
+            _mod?.ModHelper.Console.WriteLine(
+                "[RETURN BUILD111 GRAVITY] massRatio=" +
+                ratio.ToString("F4") + "; surfaceGravity=" +
+                newSurface.ToString("F2") + " m/s².",
+                MessageType.Success
+            );
+        }
+
+        private void PostGravityUpdatedNotification(
+            float newSurface,
+            float ratio
+        )
+        {
+            if (_mod?.NewHorizons == null || newSurface <= 0f)
+            {
+                return;
+            }
+            // Ignore negligible changes (e.g. a portal carrier's near-zero
+            // mass); only surface gravity the player can actually perceive
+            // deserves a screen notification.
+            if (ratio < 0.999f || ratio > 1.001f)
+            {
+                return;
+            }
+            float now = Time.unscaledTime;
+            if (now - _lastGravityNotificationTime < 2.5f)
+            {
+                return;
+            }
+            if (Mathf.Abs(newSurface - _lastNotifiedGravity) < 0.01f)
+            {
+                return;
+            }
+            _lastGravityNotificationTime = now;
+            _lastNotifiedGravity = newSurface;
+
+            string key = "$RETURN_GRAVITY_UPDATED";
+            string template = _mod.NewHorizons.GetTranslationForUI(key);
+            if (string.IsNullOrEmpty(template) || template == key)
+            {
+                return;
+            }
+            string text = string.Format(
+                System.Globalization.CultureInfo.InvariantCulture,
+                template,
+                newSurface.ToString(
+                    "F2",
+                    System.Globalization.CultureInfo.InvariantCulture
+                )
+            );
+            NotificationManager.SharedInstance?.PostNotification(
+                new NotificationData(
+                    NotificationTarget.All,
+                    text,
+                    5f
+                )
+            );
         }
 
         private bool IsNativeGiantDeepObject(Transform candidate)
@@ -1315,6 +1999,182 @@ namespace Return
                 audio.Stop();
                 audio.enabled = false;
             }
+        }
+
+        private static void RestoreAbsorbedPortalPresentation(
+            GameObject carrier
+        )
+        {
+            if (carrier == null)
+            {
+                return;
+            }
+            foreach (Transform child in
+                carrier.GetComponentsInChildren<Transform>(true))
+            {
+                if (child == null ||
+                    child.name.IndexOf(
+                        "PortalSingularityVisual",
+                        StringComparison.Ordinal
+                    ) < 0)
+                {
+                    continue;
+                }
+                foreach (Renderer renderer in
+                    child.GetComponentsInChildren<Renderer>(true))
+                {
+                    renderer.enabled = true;
+                }
+                foreach (OWRenderer owRenderer in
+                    child.GetComponentsInChildren<OWRenderer>(true))
+                {
+                    owRenderer.SetLODActivation(true);
+                    owRenderer.SetActivation(true);
+                }
+                foreach (ParticleSystem particles in
+                    child.GetComponentsInChildren<ParticleSystem>(true))
+                {
+                    particles.Play(true);
+                }
+                foreach (AudioSource audio in
+                    child.GetComponentsInChildren<AudioSource>(true))
+                {
+                    audio.enabled = true;
+                    if (!audio.isPlaying)
+                    {
+                        audio.Play();
+                    }
+                }
+                ReturnPortalDimensionOverride
+                    .ConfigureCorePortalRendering(child);
+            }
+
+            Transform transport = FindDescendant(
+                carrier.transform,
+                "Return_BlackPortalTransportVolume"
+            );
+            SphereCollider trigger = transport == null
+                ? null
+                : transport.GetComponent<SphereCollider>();
+            if (trigger != null)
+            {
+                trigger.enabled = true;
+            }
+
+            int enabledRenderers = 0;
+            int totalRenderers = 0;
+            foreach (Renderer renderer in
+                carrier.GetComponentsInChildren<Renderer>(true))
+            {
+                if (renderer == null)
+                {
+                    continue;
+                }
+                totalRenderers++;
+                if (renderer.enabled)
+                {
+                    enabledRenderers++;
+                }
+            }
+            ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                "[RETURN BUILD111 PORTAL VISUAL RESTORED] position=" +
+                carrier.transform.position +
+                "; renderers=" + enabledRenderers + "/" +
+                totalRenderers +
+                "; insideGiantsDeepWater=" +
+                ReturnPortalDimensionOverride.IsInsideGiantsDeepWater(
+                    carrier.transform.position
+                ) + ".",
+                enabledRenderers > 0
+                    ? MessageType.Success
+                    : MessageType.Warning
+            );
+        }
+
+        private IEnumerator RestoreAbsorbedPortalPresentationDelayed(
+            GameObject carrier
+        )
+        {
+            yield return new WaitForSecondsRealtime(1.5f);
+            if (carrier != null)
+            {
+                RestoreAbsorbedPortalPresentation(carrier);
+            }
+        }
+
+        private IEnumerator AbsorbPortalCarrierAfterVisualTimeout(
+            GameObject carrier,
+            OWRigidbody body
+        )
+        {
+            yield return new WaitForSecondsRealtime(2f);
+            if (carrier == null || body == null)
+            {
+                yield break;
+            }
+            foreach (Renderer renderer in
+                carrier.GetComponentsInChildren<Renderer>(true))
+            {
+                renderer.enabled = false;
+            }
+            foreach (ParticleSystem particles in
+                carrier.GetComponentsInChildren<ParticleSystem>(true))
+            {
+                particles.Stop(
+                    true,
+                    ParticleSystemStopBehavior.StopEmittingAndClear
+                );
+            }
+            foreach (AudioSource audio in
+                carrier.GetComponentsInChildren<AudioSource>(true))
+            {
+                audio.Stop();
+                audio.enabled = false;
+            }
+            // Keep the transport trigger volume alive so the absorbed
+            // endpoint still teleports and can be recalled later.
+            Transform transport = FindDescendant(
+                carrier.transform,
+                "Return_BlackPortalTransportVolume"
+            );
+            SphereCollider trigger = transport == null
+                ? null
+                : transport.GetComponent<SphereCollider>();
+            if (trigger != null)
+            {
+                trigger.enabled = true;
+            }
+            // The carrier is already suspended to Giant's Deep; parking it
+            // at local zero moves the HUD/map label to the core.
+            body.transform.localPosition = Vector3.zero;
+            body.transform.localRotation = Quaternion.identity;
+            PostPortalAbsorbedNotification();
+            _mod.ModHelper.Console.WriteLine(
+                "[RETURN PORTAL ABSORBED] carrier=" + carrier.name +
+                "; visualHidden=True; markerAtCore=True.",
+                MessageType.Success
+            );
+        }
+
+        private void PostPortalAbsorbedNotification()
+        {
+            string text = "$RETURN_PORTAL_ABSORBED";
+            if (_mod.NewHorizons != null)
+            {
+                string translated =
+                    _mod.NewHorizons.GetTranslationForUI(text);
+                if (!string.IsNullOrEmpty(translated))
+                {
+                    text = translated;
+                }
+            }
+            NotificationManager.SharedInstance?.PostNotification(
+                new NotificationData(
+                    NotificationTarget.All,
+                    text,
+                    3f
+                )
+            );
         }
 
         private void PostRevivalNotification()
@@ -1395,11 +2255,23 @@ namespace Return
         {
             internal readonly OWRigidbody Body;
             internal readonly float TransferredMass;
+            internal readonly Vector3? ParkedLocalPosition;
 
             internal AbsorbedBody(OWRigidbody body, float mass)
             {
                 Body = body;
                 TransferredMass = mass;
+            }
+
+            internal AbsorbedBody(
+                OWRigidbody body,
+                float mass,
+                Vector3? parkedLocalPosition
+            )
+            {
+                Body = body;
+                TransferredMass = mass;
+                ParkedLocalPosition = parkedLocalPosition;
             }
         }
 

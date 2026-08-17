@@ -34,6 +34,23 @@ namespace Return
             }
         }
 
+        /// <summary>
+        /// Clears the scene-six checkpoint so a freshly reset game starts
+        /// from Scene 1 (the Nomai mine) instead of the Brittle Hollow loop.
+        /// Loaded saves that already reached Scene 6 keep their checkpoint.
+        /// </summary>
+        public static void ResetForNewGame()
+        {
+            IsActive = false;
+            if (PlayerData.IsLoaded())
+            {
+                PlayerData.SetPersistentCondition(
+                    RevivalCheckpointCondition,
+                    false
+                );
+            }
+        }
+
         public static void Begin(ReturnMod mod)
         {
             if (IsActive || mod == null)
@@ -42,6 +59,11 @@ namespace Return
             }
 
             IsActive = true;
+            // Every entry into Scene 6 starts a fresh loop: normalize the
+            // saved loop count to 2 so the title screen Resume button
+            // stays available after returning to the main menu (vanilla
+            // shows it only when loopCount > 1).
+            PlayerData.SaveLoopCount(2);
             RestoreVanillaPlayerFunctions();
             mod.ModHelper.Console.WriteLine(
                 "[RETURN SCENE 6] Resetting the loop and loading the " +
@@ -121,6 +143,43 @@ namespace Return
             }
 
             InterloperTrajectoryController.Apply(mod);
+
+            // The first Scene 6 entry reloads the SolarSystem scene from
+            // inside Scenes 1-5, so the outgoing instance can still contain
+            // stale Sun/Interloper/station bodies for a moment. Verify the
+            // comet received the intended state and re-apply once if not.
+            yield return new WaitForSecondsRealtime(0.3f);
+            if (!InterloperTrajectoryController.IsCometOnAppliedTrajectory(
+                    out string trajectoryNote
+                ))
+            {
+                mod.ModHelper.Console.WriteLine(
+                    "[RETURN INTERLOPER] First application failed " +
+                    "verification: " + trajectoryNote +
+                    "; re-applying the trajectory once.",
+                    MessageType.Warning
+                );
+                InterloperTrajectoryController.Apply(mod);
+                yield return new WaitForSecondsRealtime(0.3f);
+                if (!InterloperTrajectoryController.IsCometOnAppliedTrajectory(
+                        out trajectoryNote
+                    ))
+                {
+                    mod.ModHelper.Console.WriteLine(
+                        "[RETURN INTERLOPER] Re-application also failed " +
+                        "verification: " + trajectoryNote + ".",
+                        MessageType.Error
+                    );
+                }
+            }
+            else
+            {
+                mod.ModHelper.Console.WriteLine(
+                    "[RETURN INTERLOPER] Trajectory verification passed: " +
+                    trajectoryNote + ".",
+                    MessageType.Success
+                );
+            }
 
             // Allow the newly loaded player, ship and planet physics to
             // finish their first initialization frame before teleporting.
@@ -465,7 +524,7 @@ namespace Return
             return null;
         }
 
-        private static void RestoreBrittleHollowVolumes(
+        internal static void RestoreBrittleHollowVolumes(
             OWRigidbody brittleHollow
         )
         {
@@ -506,6 +565,147 @@ namespace Return
             if (trigger != null && !trigger.IsTrackingObject(detector))
             {
                 trigger.AddObjectToVolume(detector);
+            }
+        }
+
+        private static void RemoveDetectorFromVolume(
+            EffectVolume volume,
+            GameObject detector
+        )
+        {
+            if (volume == null || detector == null || !volume.enabled)
+            {
+                return;
+            }
+            OWTriggerVolume trigger = volume.GetOWTriggerVolume();
+            if (trigger != null && trigger.IsTrackingObject(detector))
+            {
+                trigger.RemoveObjectFromVolume(detector);
+            }
+        }
+
+        /// <summary>
+        /// Clears every Giant's Deep gravity, fluid and ruleset membership
+        /// still tracked on the player. Used when the player revives out of
+        /// the core prison so the old planet cannot keep pulling, drowning
+        /// or accelerating them at the checkpoint or inside the ship.
+        /// </summary>
+        internal static void ClearGiantDeepVolumesFromPlayer(
+            OWRigidbody giantsDeep
+        )
+        {
+            GameObject playerDetector = Locator.GetPlayerDetector();
+            if (giantsDeep == null || playerDetector == null)
+            {
+                return;
+            }
+            GravityVolume gravity = giantsDeep.GetAttachedGravityVolume();
+            RemoveDetectorFromVolume(gravity, playerDetector);
+            foreach (GravityVolume volume in
+                giantsDeep.GetComponentsInChildren<GravityVolume>(true))
+            {
+                if (volume != null)
+                {
+                    RemoveDetectorFromVolume(volume, playerDetector);
+                }
+            }
+            foreach (PlanetoidRuleset ruleset in
+                giantsDeep.GetComponentsInChildren<PlanetoidRuleset>(true))
+            {
+                if (ruleset != null && ruleset.enabled)
+                {
+                    RemoveDetectorFromVolume(ruleset, playerDetector);
+                }
+            }
+            foreach (FluidVolume fluid in
+                giantsDeep.GetComponentsInChildren<FluidVolume>(true))
+            {
+                if (fluid != null)
+                {
+                    RemoveDetectorFromVolume(fluid, playerDetector);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Build118: after teleporting the player into the ship cockpit for
+        /// a revive, register the ship's oxygen volumes with the player
+        /// detector immediately. A warp does not fire the normal trigger
+        /// enter events, so without this the player can sit with the helmet
+        /// off and suffocate the moment the cockpit seat is left.
+        /// </summary>
+        internal static void RestoreShipOxygenVolumes(OWRigidbody shipBody)
+        {
+            GameObject playerDetector = Locator.GetPlayerDetector();
+            if (shipBody == null || playerDetector == null)
+            {
+                return;
+            }
+
+            OxygenVolume[] volumes = shipBody
+                .GetComponentsInChildren<OxygenVolume>(true);
+            foreach (OxygenVolume volume in volumes)
+            {
+                if (volume != null && volume.enabled)
+                {
+                    AddDetectorToVolume(volume, playerDetector);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Detaches the player from any suspension body (for example Giant's
+        /// Deep when the prison absorbed them) and restores a clean,
+        /// non-kinematic, collidable physics state with zero velocity. Call
+        /// before warping to a revival point so the old body can never leak
+        /// velocity, gravity or water drag into the new position.
+        /// </summary>
+        internal static void ResetPlayerPhysicsForRevive(
+            OWRigidbody playerBody
+        )
+        {
+            if (playerBody == null)
+            {
+                return;
+            }
+            if (playerBody.IsSuspended())
+            {
+                playerBody.Unsuspend(false);
+            }
+            playerBody.MakeNonKinematic();
+            playerBody.EnableCollisionDetection();
+            playerBody.SetVelocity(Vector3.zero);
+            playerBody.SetAngularVelocity(Vector3.zero);
+        }
+
+        /// <summary>
+        /// Copies the source body's point velocity and angular velocity onto
+        /// the player and snaps the underlying Unity rigidbody to the same
+        /// values, so reviving inside a moving ship behaves exactly like
+        /// unbuckling from the flight console.
+        /// </summary>
+        internal static void SyncPlayerVelocityToBody(
+            OWRigidbody playerBody,
+            OWRigidbody sourceBody
+        )
+        {
+            if (playerBody == null || sourceBody == null)
+            {
+                return;
+            }
+            Vector3 position = playerBody.GetPosition();
+            playerBody.SetVelocity(
+                sourceBody.GetPointVelocity(position)
+            );
+            playerBody.SetAngularVelocity(
+                sourceBody.GetAngularVelocity()
+            );
+            Rigidbody unityBody = playerBody.GetRigidbody();
+            if (unityBody != null && !unityBody.isKinematic)
+            {
+                unityBody.velocity = playerBody.GetVelocity();
+                unityBody.angularVelocity =
+                    playerBody.GetAngularVelocity();
             }
         }
 

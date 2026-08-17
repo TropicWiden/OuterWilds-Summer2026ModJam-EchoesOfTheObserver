@@ -3,6 +3,7 @@ using System;
 using System.Globalization;
 using System.IO;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Return
 {
@@ -11,6 +12,13 @@ namespace Return
         private const string SettingsFileName = "interloper-orbit.json";
 
         private static float _sceneSixEpoch = float.NaN;
+
+        /// <summary>
+        /// The distance from the Sun at which the custom Interloper trajectory
+        /// starts. Recorded by Apply so a later verification pass can confirm
+        /// the comet actually received the intended state.
+        /// </summary>
+        public static float AppliedStartDistanceMeters { get; private set; }
 
         public static float TerminalLoopTimeSeconds { get; private set; } =
             1320f;
@@ -142,6 +150,7 @@ namespace Return
                 out float interceptRadialSpeed,
                 out float interceptTangentialSpeed
             );
+            AppliedStartDistanceMeters = startState.position.magnitude;
             OrbitalState predictedArrival = SimulateState(
                 startState,
                 secondsToIntercept,
@@ -582,6 +591,12 @@ namespace Return
 
         internal static OWRigidbody FindBody(string name)
         {
+            // Scene 6 can be reached by reloading the SolarSystem scene while
+            // the outgoing instance is still being destroyed. Never select a
+            // stale body from that outgoing scene; always prefer a live body
+            // in the active scene.
+            Scene activeScene = SceneManager.GetActiveScene();
+            OWRigidbody fallback = null;
             foreach (OWRigidbody body in
                 Resources.FindObjectsOfTypeAll<OWRigidbody>())
             {
@@ -589,10 +604,60 @@ namespace Return
                     body.gameObject.scene.IsValid() &&
                     body.name == name)
                 {
-                    return body;
+                    if (body.gameObject.scene == activeScene)
+                    {
+                        return body;
+                    }
+                    if (fallback == null)
+                    {
+                        fallback = body;
+                    }
                 }
             }
-            return null;
+            return fallback;
+        }
+
+        /// <summary>
+        /// Verifies that the Interloper is a live, active-scene body sitting
+        /// at the applied start distance and moving inward. Returns false
+        /// when the first Apply was raced by the scene reload, so the caller
+        /// can safely re-apply the trajectory.
+        /// </summary>
+        public static bool IsCometOnAppliedTrajectory(out string note)
+        {
+            note = "unknown";
+            OWRigidbody comet = FindBody("Comet_Body");
+            OWRigidbody sun = FindBody("Sun_Body");
+            if (comet == null || sun == null)
+            {
+                note = "comet or sun missing";
+                return false;
+            }
+
+            Scene activeScene = SceneManager.GetActiveScene();
+            if (!comet.gameObject.scene.IsValid() ||
+                comet.gameObject.scene != activeScene)
+            {
+                note = "comet is not in the active scene";
+                return false;
+            }
+
+            Vector3 relative = comet.GetPosition() - sun.GetPosition();
+            float distance = relative.magnitude;
+            float radialVelocity = Vector3.Dot(
+                comet.GetVelocity() - sun.GetVelocity(),
+                relative.normalized
+            );
+            float tolerance = Mathf.Max(
+                200f,
+                AppliedStartDistanceMeters * 0.02f
+            );
+            note = "distance=" + Format(distance) + " m; radial=" +
+                Format(radialVelocity) + " m/s; expected=" +
+                Format(AppliedStartDistanceMeters) + " m";
+            return Mathf.Abs(distance - AppliedStartDistanceMeters) <=
+                    tolerance &&
+                radialVelocity < 0f;
         }
 
         private static string Format(float value)

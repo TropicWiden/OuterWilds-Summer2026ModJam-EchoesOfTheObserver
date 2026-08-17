@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using OWML.Common;
 using System;
 using System.Collections;
@@ -474,10 +474,16 @@ namespace Return
                     Mathf.Max(0.2f, radius)
                 );
             }
+            foreach (Renderer childRenderer in
+                _singularity.GetComponentsInChildren<Renderer>(true))
+            {
+                childRenderer.enabled = true;
+            }
             if (renderer != null)
             {
                 renderer.enabled = true;
             }
+
             _mod?.ModHelper.Console.WriteLine(
                 "[RETURN PORTAL VISUAL READY] type=" + _portalType +
                 "; state=" + _singularity.GetState() +
@@ -646,6 +652,8 @@ namespace Return
     /// </summary>
     internal sealed class ReturnWarpCoreToolBehaviour : MonoBehaviour
     {
+        internal static ReturnWarpCoreToolBehaviour ActiveBehaviour;
+
         private static readonly Vector3 RevivalLocalPosition =
             new Vector3(-224.8589f, 0.8171f, 92.6140f);
 
@@ -666,13 +674,14 @@ namespace Return
 
         private ScreenPrompt _blackLaunchPrompt;
         private ScreenPrompt _whiteLaunchPrompt;
-        private ScreenPrompt _revivePrompt;
+        private ScreenPrompt _reviveShipPrompt;
         private ScreenPrompt _recallPrompt;
         private bool _promptsRegistered;
         private bool _coreVisualShown = true;
 
         public void Initialize(ReturnMod mod, WarpCoreItem core)
         {
+            ActiveBehaviour = this;
             RemovePrompts();
             _mod = mod;
             _core = core;
@@ -687,7 +696,8 @@ namespace Return
                 "[RETURN WARP TOOL] Controls attached to " +
                 core.gameObject.name +
                 "; black=toolOptionLeft; white=toolOptionRight; " +
-                "revive=toolOptionDown; recall=toolOptionUp.",
+                "reviveShip=toolOptionUp; recall=toolOptionDown; " +
+                "checkpoint revive is available from the pause menu.",
                 MessageType.Success
             );
         }
@@ -710,12 +720,12 @@ namespace Return
                 InputLibrary.toolOptionRight,
                 Translate("$RETURN_PORTAL_LAUNCH_WHITE")
             );
-            _revivePrompt = new ScreenPrompt(
-                InputLibrary.toolOptionDown,
-                Translate("$RETURN_PORTAL_REVIVE_PROMPT")
+            _reviveShipPrompt = new ScreenPrompt(
+                InputLibrary.toolOptionUp,
+                Translate("$RETURN_PORTAL_REVIVE_SHIP_PROMPT")
             );
             _recallPrompt = new ScreenPrompt(
-                InputLibrary.toolOptionUp,
+                InputLibrary.toolOptionDown,
                 Translate("$RETURN_PORTAL_RECALL_PROMPT")
             );
 
@@ -729,7 +739,7 @@ namespace Return
                 PromptPosition.UpperRight
             );
             promptManager.AddScreenPrompt(
-                _revivePrompt,
+                _reviveShipPrompt,
                 PromptPosition.UpperRight
             );
             promptManager.AddScreenPrompt(
@@ -765,17 +775,19 @@ namespace Return
 
             SetPromptVisibility(true);
 
+            bool trapped =
+                Build111SimpleCorePrisonController.IsPlayerTrapped;
             bool launchBlack = OWInput.IsNewlyPressed(
                 InputLibrary.toolOptionLeft
             );
             bool launchWhite = OWInput.IsNewlyPressed(
                 InputLibrary.toolOptionRight
             );
-            bool revive = OWInput.IsNewlyPressed(
-                InputLibrary.toolOptionDown
-            );
-            bool recall = OWInput.IsNewlyPressed(
+            bool reviveShip = !trapped && OWInput.IsNewlyPressed(
                 InputLibrary.toolOptionUp
+            );
+            bool recallPortals = !trapped && OWInput.IsNewlyPressed(
+                InputLibrary.toolOptionDown
             );
 
             if (launchBlack)
@@ -789,18 +801,18 @@ namespace Return
                 TryLaunchPortal(ReturnPortalType.White);
             }
 
-            if (revive)
+            if (reviveShip)
             {
-                InputLibrary.toolOptionDown.ConsumeInput();
+                InputLibrary.toolOptionUp.ConsumeInput();
                 if (!_revivalInProgress)
                 {
-                    StartCoroutine(RevivePlayer());
+                    StartCoroutine(ReviveAtShip());
                 }
             }
 
-            if (recall)
+            if (recallPortals)
             {
-                InputLibrary.toolOptionUp.ConsumeInput();
+                InputLibrary.toolOptionDown.ConsumeInput();
                 RecallPortals();
             }
         }
@@ -862,7 +874,7 @@ namespace Return
         /// HUD label and map marker, and the tool is then free to launch a
         /// fresh black hole or white hole.
         /// </summary>
-        private void RecallPortals()
+        internal void RecallPortals()
         {
             if (_launchInProgress)
             {
@@ -998,9 +1010,49 @@ namespace Return
                 collider.enabled = false;
             }
 
-            Traverse.Create(anchor)
-                .Field("_launchTime")
+            // A clone made from a currently-launched scout copies the live
+            // anchor state (surface parent, anchored flag, fragment
+            // integrity notification). Reset all of it so the carrier starts
+            // as a clean, just-launched probe: it must neither stick in
+            // front of the player nor leak the scout's surface-integrity HUD
+            // notice while launching.
+            Traverse anchorTraverse = Traverse.Create(anchor);
+            anchorTraverse.Field("_launchTime")
                 .SetValue(float.NegativeInfinity);
+            anchorTraverse.Field("_anchored").SetValue(false);
+            anchorTraverse.Field("_localImpactPos")
+                .SetValue(Vector3.zero);
+            anchorTraverse.Field("_breakableFragment")
+                .SetValue((object)null);
+            anchorTraverse.Field("_ringworldDam").SetValue((object)null);
+            anchorTraverse.Field("_notificationPosted").SetValue(false);
+            anchorTraverse.Field("_unanchoredTime").SetValue(0f);
+
+            // Detach from any surface/socket parent copied by Instantiate so
+            // the launch is always performed in world space.
+            carrier.transform.SetParent(null, true);
+
+            SurveyorProbe probe = carrier.GetComponent<SurveyorProbe>();
+            if (probe != null)
+            {
+                OWRigidbody body = probe.GetOWRigidbody();
+                if (body != null)
+                {
+                    body.MakeNonKinematic();
+                }
+                Traverse.Create(probe)
+                    .Field("_isRetrieving")
+                    .SetValue(false);
+            }
+
+            ProbeHUDMarker hudMarker =
+                carrier.GetComponentInChildren<ProbeHUDMarker>(true);
+            if (hudMarker != null)
+            {
+                Traverse hudTraverse = Traverse.Create(hudMarker);
+                hudTraverse.Field("_launched").SetValue(false);
+                hudTraverse.Field("_canvasMarker").SetValue((object)null);
+            }
         }
 
         /// <summary>
@@ -1167,6 +1219,7 @@ namespace Return
                     0f
                 );
                 IgnoreCarrierCollisionsWithPlayer(clone, playerBody);
+                clone.AddComponent<ReturnPortalCarrierCollisionLogger>();
                 ReturnPortalEndpoint endpoint =
                     clone.GetComponent<ReturnPortalEndpoint>();
                 InstallPortalVisualAndVolume(
@@ -1563,7 +1616,229 @@ namespace Return
             return null;
         }
 
-        private IEnumerator RevivePlayer()
+        private IEnumerator ReviveAtShip()
+        {
+            _revivalInProgress = true;
+            bool revived = false;
+            try
+            {
+                OWRigidbody brittleHollow = FindBody(
+                    "BrittleHollow_Body"
+                );
+                OWRigidbody shipBody = Locator.GetShipBody();
+                OWRigidbody playerBody = Locator.GetPlayerBody();
+                if (brittleHollow == null || playerBody == null)
+                {
+                    throw new InvalidOperationException(
+                        "Brittle Hollow or the player body was unavailable."
+                    );
+                }
+                if (shipBody != null &&
+                    Build111SimpleCorePrisonController.IsBodyAbsorbed(
+                        shipBody
+                    ))
+                {
+                    shipBody = null;
+                }
+
+                ShipCockpitController cockpit = shipBody == null
+                    ? null
+                    : shipBody.GetComponent<ShipCockpitController>();
+                if (cockpit == null && shipBody != null)
+                {
+                    cockpit = shipBody.GetComponentInChildren<
+                        ShipCockpitController>(true);
+                }
+                PlayerAttachPoint attachPoint = cockpit == null
+                    ? null
+                    : Traverse.Create(cockpit)
+                        .Field("_playerAttachPoint")
+                        .GetValue<PlayerAttachPoint>();
+
+                Vector3 worldPosition;
+                Quaternion worldRotation;
+                if (attachPoint != null)
+                {
+                    worldPosition = attachPoint.transform.position;
+                    worldRotation = shipBody.GetRotation();
+                }
+                else if (shipBody != null)
+                {
+                    worldPosition =
+                        shipBody.GetPosition() +
+                        shipBody.transform.up * 4f;
+                    worldRotation = shipBody.GetRotation();
+                }
+                else
+                {
+                    worldPosition =
+                        brittleHollow.transform.TransformPoint(
+                            RevivalLocalPosition
+                        );
+                    worldRotation =
+                        brittleHollow.GetRotation() * RevivalLocalRotation;
+                }
+
+                ReturnPortalPlayerDetachment.DetachFromPlayerBeforeRevive();
+                SceneSixController.ResetPlayerPhysicsForRevive(playerBody);
+                playerBody.WarpToPositionRotation(
+                    worldPosition,
+                    worldRotation
+                );
+                SceneSixController.ClearGiantDeepVolumesFromPlayer(
+                    InterloperTrajectoryController.FindBody(
+                        "GiantsDeep_Body"
+                    )
+                );
+                SceneSixController.RestoreBrittleHollowVolumes(
+                    brittleHollow
+                );
+                SceneSixController.SyncPlayerVelocityToBody(
+                    playerBody,
+                    shipBody != null ? shipBody : brittleHollow
+                );
+
+                PlayerLockOnTargeting lockOn =
+                    Locator.GetPlayerTransform()
+                        .GetComponent<PlayerLockOnTargeting>();
+                if (lockOn != null)
+                {
+                    lockOn.BreakLock();
+                }
+                Physics.SyncTransforms();
+                SceneSixEndingController.RestorePlayerResourcesAndVisor();
+                SceneSixController.RestoreShipOxygenVolumes(shipBody);
+                SceneSixEndingController.ArmReviveImpactImmunity(15f);
+
+                if (attachPoint != null && cockpit != null)
+                {
+                    // Buckle the player into the flight console so the
+                    // revive behaves like sitting down at the controls:
+                    // seatbelt fastened, cockpit camera, ship input mode.
+                    Traverse.Create(cockpit)
+                        .Method("OnPressInteract")
+                        .GetValue();
+                }
+                SceneSixWarpCoreToolController.NormalizeShipEntranceForRevive(
+                    shipBody
+                );
+                revived = true;
+            }
+            catch (Exception exception)
+            {
+                PostNotification("$RETURN_PORTAL_REVIVE_FAILED");
+                _mod.ModHelper.Console.WriteLine(
+                    "[RETURN REVIVE] Ship revival failed without " +
+                    "affecting Scene 6: " + exception,
+                    MessageType.Error
+                );
+            }
+
+            if (revived)
+            {
+                OWRigidbody revivedPlayerBody = Locator.GetPlayerBody();
+                OWRigidbody revivedShipBody = Locator.GetShipBody();
+                for (int frame = 0; frame < 8; frame++)
+                {
+                    yield return new WaitForFixedUpdate();
+                    if (revivedPlayerBody == null ||
+                        revivedShipBody == null)
+                    {
+                        break;
+                    }
+                    SceneSixController.SyncPlayerVelocityToBody(
+                        revivedPlayerBody,
+                        revivedShipBody
+                    );
+                }
+                SceneSixEndingController.ArmReviveImpactImmunity(15f);
+                SceneSixEndingController.ClearPlayerPortalTransit();
+                PostNotification("$RETURN_PORTAL_REVIVED");
+                if (revivedPlayerBody != null && revivedShipBody != null)
+                {
+                    StartCoroutine(
+                        WatchShipEntranceBeam(
+                            revivedShipBody,
+                            revivedPlayerBody
+                        )
+                    );
+                }
+                _mod.ModHelper.Console.WriteLine(
+                    "[RETURN REVIVE] Player revived in the ship cockpit " +
+                    "without resetting the loop.",
+                    MessageType.Success
+                );
+            }
+            _revivalInProgress = false;
+        }
+
+        /// <summary>
+        /// Build118: after a cockpit revive the entrance tractor beam is
+        /// intentionally switched off and the ship is told the player is
+        /// inside. If the stock hatch/beam events never notice the player
+        /// leaving (the revive teleports them into the cockpit instead of
+        /// flying through the hatch), the beam would stay off forever and
+        /// the player could never re-enter the ship. This watcher re-enables
+        /// the beam as soon as the player has actually left the ship.
+        /// </summary>
+        private IEnumerator WatchShipEntranceBeam(
+            OWRigidbody shipBody,
+            OWRigidbody playerBody
+        )
+        {
+            if (shipBody == null || playerBody == null)
+            {
+                yield break;
+            }
+            ShipTractorBeamSwitch beamSwitch =
+                shipBody.GetComponentInChildren<ShipTractorBeamSwitch>(
+                    true
+                );
+            if (beamSwitch == null)
+            {
+                yield break;
+            }
+
+            for (int frame = 0; frame < 1500; frame++)
+            {
+                yield return new WaitForSeconds(0.1f);
+                if (shipBody == null || playerBody == null ||
+                    beamSwitch == null)
+                {
+                    yield break;
+                }
+
+                bool attached =
+                    PlayerState.IsAttached() ||
+                    PlayerState.AtFlightConsole() ||
+                    PlayerState.UsingShipComputer();
+                bool playerIsChild =
+                    playerBody.transform.IsChildOf(shipBody.transform);
+                float distance = Vector3.Distance(
+                    playerBody.GetPosition(),
+                    shipBody.GetPosition()
+                );
+                // 6 m just covers the ship interior, so a detached player at
+                // this distance is still inside; once they are farther away
+                // they have genuinely left the ship.
+                bool insideShipVolume = distance <= 6f;
+                bool genuinelyInside =
+                    attached || playerIsChild ||
+                    (PlayerState.IsInsideShip() && insideShipVolume);
+                if (genuinelyInside)
+                {
+                    continue;
+                }
+
+                // The player has actually left the ship: clear the stuck
+                // "inside" state, restore the entrance beam and stop
+                // watching so nothing can pull them back to the cockpit.
+                SceneSixWarpCoreToolController.ClearShipEntranceState();
+                yield break;
+            }
+        }
+
+        private IEnumerator ReviveAtCheckpoint()
         {
             _revivalInProgress = true;
             bool revived = false;
@@ -1587,15 +1862,22 @@ namespace Return
                 Quaternion worldRotation =
                     brittleHollow.GetRotation() * RevivalLocalRotation;
                 ReturnPortalPlayerDetachment.DetachFromPlayerBeforeRevive();
+                SceneSixController.ResetPlayerPhysicsForRevive(playerBody);
                 playerBody.WarpToPositionRotation(
                     worldPosition,
                     worldRotation
                 );
-                playerBody.SetVelocity(
-                    brittleHollow.GetPointVelocity(worldPosition)
+                SceneSixController.ClearGiantDeepVolumesFromPlayer(
+                    InterloperTrajectoryController.FindBody(
+                        "GiantsDeep_Body"
+                    )
                 );
-                playerBody.SetAngularVelocity(
-                    brittleHollow.GetAngularVelocity()
+                SceneSixController.RestoreBrittleHollowVolumes(
+                    brittleHollow
+                );
+                SceneSixController.SyncPlayerVelocityToBody(
+                    playerBody,
+                    brittleHollow
                 );
 
                 PlayerLockOnTargeting lockOn =
@@ -1606,6 +1888,7 @@ namespace Return
                     lockOn.BreakLock();
                 }
                 Physics.SyncTransforms();
+                SceneSixEndingController.ArmReviveImpactImmunity(15f);
                 revived = true;
             }
             catch (Exception exception)
@@ -1621,6 +1904,7 @@ namespace Return
             if (revived)
             {
                 yield return new WaitForFixedUpdate();
+                SceneSixWarpCoreToolController.ClearShipEntranceState();
                 SceneSixEndingController.ClearPlayerPortalTransit();
                 PostNotification("$RETURN_PORTAL_REVIVED");
                 _mod.ModHelper.Console.WriteLine(
@@ -1680,6 +1964,12 @@ namespace Return
                     ? ScreenPrompt.DisplayState.GrayedOut
                     : ScreenPrompt.DisplayState.Normal
             );
+            _reviveShipPrompt.SetText(Translate(
+                "$RETURN_PORTAL_REVIVE_SHIP_PROMPT"
+            ));
+            _reviveShipPrompt.SetDisplayState(
+                ScreenPrompt.DisplayState.Normal
+            );
             _recallPrompt.SetText(Translate(
                 "$RETURN_PORTAL_RECALL_PROMPT"
             ));
@@ -1699,7 +1989,7 @@ namespace Return
             RefreshPromptText();
             _blackLaunchPrompt.SetVisibility(visible);
             _whiteLaunchPrompt.SetVisibility(visible);
-            _revivePrompt.SetVisibility(visible);
+            _reviveShipPrompt.SetVisibility(visible);
             _recallPrompt.SetVisibility(visible);
         }
 
@@ -1747,6 +2037,10 @@ namespace Return
 
         private void OnDestroy()
         {
+            if (ActiveBehaviour == this)
+            {
+                ActiveBehaviour = null;
+            }
             RemovePrompts();
         }
 
@@ -1767,11 +2061,10 @@ namespace Return
                 {
                     manager.RemoveScreenPrompt(_whiteLaunchPrompt);
                 }
-                if (_revivePrompt != null)
+                if (_reviveShipPrompt != null)
                 {
-                    manager.RemoveScreenPrompt(_revivePrompt);
-                }
-                if (_recallPrompt != null)
+                    manager.RemoveScreenPrompt(_reviveShipPrompt);
+                }                if (_recallPrompt != null)
                 {
                     manager.RemoveScreenPrompt(_recallPrompt);
                 }
@@ -1779,13 +2072,104 @@ namespace Return
             _promptsRegistered = false;
             _blackLaunchPrompt = null;
             _whiteLaunchPrompt = null;
-            _revivePrompt = null;
+            _reviveShipPrompt = null;
             _recallPrompt = null;
         }
     }
 
     internal static class SceneSixWarpCoreToolController
     {
+        // Build118 fix: after a cockpit revive the player is teleported into
+        // the seat, so the stock hatch/beam entry events never run. While
+        // this grace window is active the HighSpeedImpactSensor yank back to
+        // the cockpit centre is suppressed, letting the player actually walk
+        // out through the hatch; the watcher clears it once they are outside.
+        private static float _shipExitGraceUntil =
+            float.NegativeInfinity;
+
+        internal static bool IsShipExitGraceActive
+        {
+            get
+            {
+                return SceneSixController.IsActive &&
+                    Time.time < _shipExitGraceUntil;
+            }
+        }
+
+        /// <summary>
+        /// Clears the stuck "inside ship" state after an in-loop revive that
+        /// does not end inside the ship. Firing ExitShip resets PlayerState,
+        /// the hatch and the tractor-beam switch, then the beam is switched
+        /// back on so the player can re-enter normally.
+        /// </summary>
+        internal static void ClearShipEntranceState()
+        {
+            try
+            {
+                GlobalMessenger.FireEvent("ExitShip");
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN SHIP ENTRANCE] Could not fire ExitShip: " +
+                    exception.Message,
+                    MessageType.Warning
+                );
+            }
+
+            try
+            {
+                OWRigidbody shipBody = Locator.GetShipBody();
+                if (shipBody == null)
+                {
+                    return;
+                }
+                ShipTractorBeamSwitch beamSwitch =
+                    shipBody.GetComponentInChildren<
+                        ShipTractorBeamSwitch>(true);
+                if (beamSwitch != null)
+                {
+                    Traverse.Create(beamSwitch)
+                        .Field("_isPlayerInShip")
+                        .SetValue(false);
+                    beamSwitch.ActivateTractorBeam();
+                }
+                HatchController hatch =
+                    shipBody.GetComponentInChildren<HatchController>(true);
+                if (hatch != null)
+                {
+                    Traverse.Create(hatch)
+                        .Field("_isPlayerInShip")
+                        .SetValue(false);
+                }
+                _shipExitGraceUntil = float.NegativeInfinity;
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN SHIP ENTRANCE] Could not reset the ship " +
+                    "after an outside revive: " + exception.Message,
+                    MessageType.Warning
+                );
+            }
+        }
+
+        /// <summary>
+        /// Recalls every launched portal endpoint through the active warp
+        /// core behaviour. Safe to call from any controller (including the
+        /// core prison while the player is trapped); does nothing when no
+        /// warp core behaviour is currently alive.
+        /// </summary>
+        public static bool TryRecallPortals()
+        {
+            if (ReturnWarpCoreToolBehaviour.ActiveBehaviour == null)
+            {
+                return false;
+            }
+            ReturnWarpCoreToolBehaviour.ActiveBehaviour.RecallPortals();
+            return true;
+        }
+
         public static bool IsReturnWarpCoreHeld()
         {
             ToolModeSwapper swapper = Locator.GetToolModeSwapper();
@@ -1800,6 +2184,80 @@ namespace Return
                 itemTool.IsEquipped() &&
                 held != null &&
                 held.name == "Return_PickableWarpCore";
+        }
+
+        /// <summary>
+        /// Build118: after reviving inside the ship, reset the entrance so
+        /// the hatch door and the entrance tractor beam cannot trap the
+        /// player. The tractor beam is the elevator at the ship entrance:
+        /// when the player is teleported into the cockpit instead of flying
+        /// through the hatch, the ship still thinks nobody is inside, so the
+        /// moment the player leaves the beam trigger it activates again and
+        /// pulls them back into the ship. Marking the player as inside and
+        /// shutting the beam and hatch down keeps the exit path clear.
+        /// </summary>
+        internal static void NormalizeShipEntranceForRevive(
+            OWRigidbody shipBody
+        )
+        {
+            if (shipBody == null)
+            {
+                return;
+            }
+
+            // Suppress the HighSpeedImpactSensor cockpit yank while the
+            // player gets up and walks out; the entrance watcher clears this
+            // once they are genuinely outside the ship.
+            _shipExitGraceUntil = Time.time + 120f;
+
+            try
+            {
+                ShipTractorBeamSwitch beamSwitch =
+                    shipBody.GetComponentInChildren<
+                        ShipTractorBeamSwitch>(true);
+                if (beamSwitch != null)
+                {
+                    Traverse.Create(beamSwitch)
+                        .Field("_isPlayerInShip")
+                        .SetValue(true);
+                    beamSwitch.DeactivateTractorBeam();
+                }
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN SHIP ENTRANCE] Could not reset the ship " +
+                    "tractor beam: " + exception,
+                    MessageType.Warning
+                );
+            }
+
+            try
+            {
+                HatchController hatch =
+                    shipBody.GetComponentInChildren<HatchController>(true);
+                if (hatch != null)
+                {
+                    Traverse.Create(hatch)
+                        .Field("_isPlayerInShip")
+                        .SetValue(true);
+                    Traverse.Create(hatch)
+                        .Method("CloseHatch")
+                        .GetValue();
+                }
+                // Tell the rest of the ship the player is inside so the
+                // stock EnterShip listeners (audio, flashlight, cockpit
+                // damage, PlayerState) agree with the teleported revive.
+                GlobalMessenger.FireEvent("EnterShip");
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN SHIP ENTRANCE] Could not reset the ship " +
+                    "hatch: " + exception,
+                    MessageType.Warning
+                );
+            }
         }
 
         public static IEnumerator Prepare(ReturnMod mod)
@@ -1943,5 +2401,129 @@ namespace Return
         }
     }
 
-}
+    /// <summary>
+    /// Suppresses the vanilla "inside ship" cockpit yank while the
+    /// Build118 ship-exit grace window is active. Without this, a player
+    /// teleported into the cockpit cannot leave: PlayerState.IsInsideShip()
+    /// stays true until the hatch entry/exit events pair up, and
+    /// HighSpeedImpactSensor teleports them back to the seat every physics
+    /// frame. The grace window ends once the player is genuinely outside.
+    /// </summary>
+    [HarmonyPatch(typeof(HighSpeedImpactSensor), "HandlePlayerInsideShip")]
+    internal static class ReturnShipExitGraceYankPatch
+    {
+        private static bool Prefix()
+        {
+            return !SceneSixWarpCoreToolController.IsShipExitGraceActive;
+        }
+    }
 
+    /// <summary>
+    /// Watches the launched carrier's physical contacts. Everywhere
+    /// except the prison door, collisions behave normally. The moment
+    /// the carrier touches a Giant's Deep collider inside the door
+    /// region, Giant's Deep collisions are dropped and the carrier is
+    /// steered toward the core so the containment check can absorb it
+    /// into the prison instead of bouncing it away.
+    /// </summary>
+    internal sealed class ReturnPortalCarrierCollisionLogger : MonoBehaviour
+    {
+        private const float DoorContactRadius = 600f;
+        private float _nextLogTime;
+        private int _logged;
+
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (collision == null || collision.collider == null)
+            {
+                return;
+            }
+
+            OWRigidbody carrierBody = GetComponent<OWRigidbody>();
+            OWRigidbody giantsDeep =
+                InterloperTrajectoryController.FindBody(
+                    "GiantsDeep_Body"
+                );
+            bool partOfGiantsDeep = giantsDeep != null &&
+                collision.collider.transform.IsChildOf(
+                    giantsDeep.transform
+                );
+
+            if (carrierBody != null && giantsDeep != null &&
+                partOfGiantsDeep &&
+                Vector3.Distance(
+                    carrierBody.GetPosition(),
+                    giantsDeep.GetPosition()
+                ) <= DoorContactRadius)
+            {
+                Build111SimpleCorePrisonController
+                    .ApplyDoorContactCollisionIgnore(carrierBody);
+
+                Vector3 toCore =
+                    giantsDeep.GetPosition() -
+                    carrierBody.GetPosition();
+                float speed = carrierBody.GetVelocity().magnitude;
+                if (toCore.sqrMagnitude > 0.001f && speed > 0.5f)
+                {
+                    carrierBody.SetVelocity(toCore.normalized * speed);
+                }
+                carrierBody.SetAngularVelocity(Vector3.zero);
+                Build111SimpleCorePrisonController.TryAbsorbBodyAtDoor(
+                    carrierBody
+                );
+                return;
+            }
+
+            if (Time.unscaledTime < _nextLogTime || _logged >= 6)
+            {
+                return;
+            }
+            _nextLogTime = Time.unscaledTime + 2f;
+            _logged++;
+
+            string path = collision.collider.name;
+            Transform parent = collision.collider.transform.parent;
+            int depth = 0;
+            while (parent != null && depth < 8)
+            {
+                path = parent.name + "/" + path;
+                parent = parent.parent;
+                depth++;
+            }
+            ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                "[RETURN CARRIER COLLISION] carrier=" +
+                gameObject.name + "; hit=" + path +
+                "; partOfGiantsDeep=" + partOfGiantsDeep,
+                MessageType.Warning
+            );
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            if (other == null)
+            {
+                return;
+            }
+            OWRigidbody carrierBody = GetComponent<OWRigidbody>();
+            OWRigidbody giantsDeep =
+                InterloperTrajectoryController.FindBody("GiantsDeep_Body");
+            if (carrierBody == null || giantsDeep == null)
+            {
+                return;
+            }
+            if (other.transform.IsChildOf(giantsDeep.transform) &&
+                Vector3.Distance(
+                    carrierBody.GetPosition(),
+                    giantsDeep.GetPosition()
+                ) <= DoorContactRadius)
+            {
+                Build111SimpleCorePrisonController
+                    .ApplyDoorContactCollisionIgnore(carrierBody);
+                Build111SimpleCorePrisonController.TryAbsorbBodyAtDoor(
+                    carrierBody
+                );
+            }
+        }
+    }
+
+}

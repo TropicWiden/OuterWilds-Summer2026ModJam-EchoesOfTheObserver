@@ -1,0 +1,26 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Outer-Wilds-New-Horizons/new-horizons/main/NewHorizons/Schemas/star_system_schema.json",
+  "entryPositions": [
+    { "id": "RETURN_BH_CURIOSITY", "position": { "x": 300, "y": -200 } },
+    { "id": "RETURN_GIANT_DEEP_SECRET", "position": { "x": 600, "y": -400 } },
+    { "id": "RETURN_INTERLOPER", "position": { "x": 900, "y": -600 } },
+    { "id": "RETURN_REVIVE_DEVICE", "position": { "x": 600, "y": -800 } },
+    { "id": "RETURN_SINGULARITY_LAUNCHER", "position": { "x": 900, "y": -1000 } },
+    { "id": "RETURN_RIEBECK_PYE_THEORY", "position": { "x": 300, "y": -800 } }
+  ],
+  "curiosities": [
+    { "id": "RETURN_BH_CURIOSITY", "color": { "r": 255, "g": 255, "b": 255, "a": 255 }, "highlightColor": { "r": 255, "g": 255, "b": 255, "a": 223 } }
+  ],
+  "initialReveal": [
+    "RETURN_INTERLOPER_RUMOR",
+    "RETURN_INTERLOPER_REVEAL",
+    "RETURN_GIANT_DEEP_SECRET_RUMOR",
+    "RETURN_GIANT_DEEP_SECRET_REVEAL",
+    "RETURN_REVIVE_DEVICE_RUMOR",
+    "RETURN_REVIVE_DEVICE_REVEAL",
+    "RETURN_SINGULARITY_LAUNCHER_RUMOR",
+    "RETURN_SINGULARITY_LAUNCHER_REVEAL",
+    "RETURN_RIEBECK_PYE_THEORY_RUMOR",
+    "RETURN_RIEBECK_PYE_THEORY_REVEAL"
+  ]
+}

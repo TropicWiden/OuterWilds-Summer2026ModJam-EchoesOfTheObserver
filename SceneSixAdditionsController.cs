@@ -51,21 +51,6 @@ namespace Return
                 brittleHollow,
                 parent,
                 sector,
-                "Return_Recording_1",
-                new Vector3(-224.4084f, 5.1523f, 91.4020f),
-                new Quaternion(
-                    0.143889f,
-                    0.143520f,
-                    0.695843f,
-                    0.688840f
-                ),
-                BuildSceneFiveKeys()
-            );
-            TryCreateRecording(
-                mod,
-                brittleHollow,
-                parent,
-                sector,
                 "Return_Recording_2",
                 new Vector3(-223.9839f, -6.5741f, 91.8540f),
                 new Quaternion(
@@ -78,28 +63,8 @@ namespace Return
                 {
                     "$RETURN_RECORDING2_01",
                     "$RETURN_RECORDING2_02",
-                    "$RETURN_RECORDING2_03"
-                }
-            );
-            TryCreateRecording(
-                mod,
-                brittleHollow,
-                parent,
-                sector,
-                "Return_Recording_3",
-                new Vector3(-223.4348f, -2.1944f, 94.0511f),
-                new Quaternion(
-                    0.143889f,
-                    0.143520f,
-                    0.695843f,
-                    0.688840f
-                ),
-                new[]
-                {
-                    "$RETURN_RECORDING3_01",
-                    "$RETURN_RECORDING3_02",
-                    "$RETURN_RECORDING3_03",
-                    "$RETURN_RECORDING3_04"
+                    "$RETURN_RECORDING2_03",
+                    "$RETURN_RECORDING2_04"
                 }
             );
             TryCreateWarpCore(
@@ -110,17 +75,6 @@ namespace Return
             );
 
             Physics.SyncTransforms();
-        }
-
-        private static string[] BuildSceneFiveKeys()
-        {
-            string[] keys = new string[18];
-            for (int index = 0; index < keys.Length; index++)
-            {
-                keys[index] =
-                    "$RETURN_SCENE5_" + (index + 1).ToString("D2");
-            }
-            return keys;
         }
 
         private static void TryCreateRecording(

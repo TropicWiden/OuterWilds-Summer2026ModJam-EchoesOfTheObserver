@@ -22,6 +22,10 @@
       <Page>$RETURN_SCENE5_16</Page>
       <Page>$RETURN_SCENE5_17</Page>
       <Page>$RETURN_SCENE5_18</Page>
+      <Page>$RETURN_SCENE5_19</Page>
+      <Page>$RETURN_SCENE5_20</Page>
+      <Page>$RETURN_SCENE5_21</Page>
+      <Page>$RETURN_SCENE5_22</Page>
     </Dialogue>
     <SetCondition>RETURN_SCENE5_HEARD</SetCondition>
   </DialogueNode>

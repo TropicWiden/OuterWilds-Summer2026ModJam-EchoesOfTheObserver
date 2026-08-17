@@ -36,6 +36,10 @@ namespace Return
         private static bool _portalRecoveryActive;
         private static bool _terminalDeathPending;
         private static bool _endingActive;
+        private static bool _prisonReviveGraceActive;
+        private static float _prisonReviveGraceUntil;
+        private static float _reviveImpactImmunityUntil =
+            float.NegativeInfinity;
 
         public static bool IsEndingActive => _endingActive;
 
@@ -47,6 +51,9 @@ namespace Return
             _portalRecoveryActive = false;
             _terminalDeathPending = false;
             _endingActive = false;
+            _prisonReviveGraceActive = false;
+            _prisonReviveGraceUntil = float.NegativeInfinity;
+            _reviveImpactImmunityUntil = float.NegativeInfinity;
 
             if (mod == null)
             {
@@ -75,6 +82,92 @@ namespace Return
             _lastPortalTransitTime = float.NegativeInfinity;
         }
 
+        /// <summary>
+        /// Short window after a prison revive during which impact deaths
+        /// are intercepted so the physics engine cannot kill the player
+        /// while the planet frame velocity settles.
+        /// </summary>
+        public static void ArmPrisonReviveGrace(float seconds)
+        {
+            _prisonReviveGraceActive = true;
+            _prisonReviveGraceUntil = Time.time + seconds;
+        }
+
+        /// <summary>
+        /// Suppresses vanilla impact damage (and therefore impact deaths)
+        /// for a short window after any revive path, giving the physics
+        /// engine time to re-settle the player on the planet frame or in
+        /// the ship seat without the old body's velocity killing them.
+        /// </summary>
+        public static void ArmReviveImpactImmunity(float seconds)
+        {
+            float until = Time.time + seconds;
+            if (until > _reviveImpactImmunityUntil)
+            {
+                _reviveImpactImmunityUntil = until;
+            }
+        }
+
+        public static bool IsReviveImpactImmunityActive
+        {
+            get
+            {
+                return SceneSixController.IsActive &&
+                    Time.time < _reviveImpactImmunityUntil;
+            }
+        }
+
+        /// <summary>
+        /// Keeps the player's velocity locked to the revival body for the
+        /// first fixed frames after a checkpoint revive or the Scene 6
+        /// spawn. This stops the old body's velocity or a recently falling
+        /// planet fragment from pushing the player into a fatal impact
+        /// while the physics engine settles.
+        /// </summary>
+        public static void StartReviveVelocityGuard(
+            OWRigidbody playerBody,
+            OWRigidbody sourceBody,
+            int frameCount
+        )
+        {
+            if (_mod == null || playerBody == null || sourceBody == null)
+            {
+                return;
+            }
+            _mod.StartCoroutine(
+                GuardRevivalVelocity(playerBody, sourceBody, frameCount)
+            );
+        }
+
+        private static IEnumerator GuardRevivalVelocity(
+            OWRigidbody playerBody,
+            OWRigidbody sourceBody,
+            int frameCount
+        )
+        {
+            for (int frame = 0; frame < frameCount; frame++)
+            {
+                yield return new WaitForFixedUpdate();
+                if (playerBody == null || sourceBody == null)
+                {
+                    yield break;
+                }
+                Vector3 targetVelocity =
+                    sourceBody.GetPointVelocity(playerBody.GetPosition());
+                playerBody.SetVelocity(targetVelocity);
+                playerBody.SetAngularVelocity(
+                    sourceBody.GetAngularVelocity()
+                );
+                Rigidbody unityBody = playerBody.GetRigidbody();
+                if (unityBody != null && !unityBody.isKinematic)
+                {
+                    unityBody.velocity = targetVelocity;
+                    unityBody.angularVelocity =
+                        sourceBody.GetAngularVelocity();
+                }
+            }
+        }
+
         public static void MarkTerminalDeath()
         {
             if (!SceneSixController.IsActive)
@@ -96,6 +189,24 @@ namespace Return
                 return false;
             }
 
+            bool prisonGraceImpact =
+                _prisonReviveGraceActive &&
+                Time.time < _prisonReviveGraceUntil &&
+                deathManager.GetDeathType() == DeathType.Impact;
+            if (prisonGraceImpact && _mod != null)
+            {
+                _portalRecoveryActive = true;
+                _mod.StartCoroutine(
+                    RecoverInsideLoop(deathManager, false)
+                );
+                _mod.ModHelper.Console.WriteLine(
+                    "[RETURN LOOP RECOVERY] Intercepted prison-revive " +
+                    "impact; loop time will be preserved.",
+                    MessageType.Success
+                );
+                return true;
+            }
+
             bool recentPortalImpact =
                 deathManager.GetDeathType() == DeathType.Impact &&
                 _playerUsedPortal &&
@@ -104,6 +215,19 @@ namespace Return
             if (_mod == null)
             {
                 return false;
+            }
+
+            if (deathManager.GetDeathType() == DeathType.Meditation)
+            {
+                _portalRecoveryActive = true;
+                _mod.StartCoroutine(RecoverToFreshLoop(deathManager));
+                _mod.ModHelper.Console.WriteLine(
+                    "[RETURN MEDITATION] Pause-menu meditation " +
+                    "intercepted; starting a fresh 17-minute loop at " +
+                    "the gravity cannon.",
+                    MessageType.Success
+                );
+                return true;
             }
 
             _portalRecoveryActive = true;
@@ -198,6 +322,60 @@ namespace Return
             _portalRecoveryActive = false;
         }
 
+        private static IEnumerator RecoverToFreshLoop(
+            DeathManager deathManager
+        )
+        {
+            // Let the vanilla meditation death fade settle, then start
+            // a brand-new 17-minute loop at the gravity-cannon spawn.
+            yield return new WaitForSecondsRealtime(1.2f);
+
+            try
+            {
+                Traverse death = Traverse.Create(deathManager);
+                death.Field("_isDying").SetValue(false);
+                death.Field("_isDead").SetValue(false);
+                death.Field("_resurrectAfterDelay").SetValue(false);
+                death.Field("_fakeMeditationDeath").SetValue(false);
+                deathManager.enabled = false;
+
+                ReturnPortalPlayerDetachment.DetachFromPlayerBeforeRevive();
+                ClearPlayerPortalTransit();
+                SceneSixMainMenuResetController.PrepareFreshLoopReset();
+
+                PauseCommandListener pause =
+                    Locator.GetPauseCommandListener();
+                if (pause != null)
+                {
+                    pause.RemovePauseCommandLock();
+                }
+                OWTime.SetTimeScale(1f);
+                OWInput.ChangeInputMode(InputMode.Character);
+                Physics.SyncTransforms();
+            }
+            catch (Exception exception)
+            {
+                _mod?.ModHelper.Console.WriteLine(
+                    "[RETURN MEDITATION] Fresh-loop cleanup failed: " +
+                    exception,
+                    MessageType.Error
+                );
+            }
+
+            _portalRecoveryActive = false;
+            yield return null;
+            _mod?.ModHelper.Console.WriteLine(
+                "[RETURN MEDITATION] Starting the fresh loop.",
+                MessageType.Success
+            );
+            LoadManager.LoadScene(
+                OWScene.SolarSystem,
+                LoadManager.FadeType.ToBlack,
+                1f,
+                true
+            );
+        }
+
         private static void ReviveAtCheckpoint(DeathManager deathManager)
         {
             try
@@ -249,6 +427,14 @@ namespace Return
                 playerBody.SetAngularVelocity(
                     brittleHollow.GetAngularVelocity()
                 );
+                SceneSixController.ClearGiantDeepVolumesFromPlayer(
+                    InterloperTrajectoryController.FindBody(
+                        "GiantsDeep_Body"
+                    )
+                );
+                SceneSixController.RestoreBrittleHollowVolumes(
+                    brittleHollow
+                );
 
                 PlayerLockOnTargeting lockOn =
                     Locator.GetPlayerTransform()
@@ -283,7 +469,41 @@ namespace Return
             }
         }
 
-        private static void RestorePlayerResourcesAndVisor()
+        public static void ReviveAtCheckpointFromMenu()
+        {
+            if (!SceneSixController.IsActive)
+            {
+                return;
+            }
+            if (Build111SimpleCorePrisonController.IsPlayerTrapped)
+            {
+                return;
+            }
+
+            DeathManager deathManager = Locator.GetDeathManager();
+            if (deathManager == null)
+            {
+                _mod?.ModHelper.Console.WriteLine(
+                    "[RETURN MENU REVIVE] DeathManager was unavailable; " +
+                    "cannot revive at the checkpoint.",
+                    MessageType.Error
+                );
+                return;
+            }
+
+            ReviveAtCheckpoint(deathManager);
+            _mod?.ModHelper.Console.WriteLine(
+                "[RETURN MENU REVIVE] Player revived at the Brittle " +
+                "Hollow base from the pause menu; loop time preserved " +
+                "at " +
+                InterloperTrajectoryController
+                    .GetSceneSixElapsedSeconds().ToString("F2") +
+                " seconds.",
+                MessageType.Success
+            );
+        }
+
+        internal static void RestorePlayerResourcesAndVisor()
         {
             OWRigidbody playerBody = Locator.GetPlayerBody();
             PlayerResources resources = playerBody == null
@@ -657,6 +877,15 @@ namespace Return
             {
                 SceneSixEndingController.Prepare(__instance);
             }
+        }
+    }
+
+    [HarmonyPatch(typeof(PlayerResources), "OnImpact")]
+    internal static class ReturnSceneSixReviveImpactImmunityPatch
+    {
+        private static bool Prefix()
+        {
+            return !SceneSixEndingController.IsReviveImpactImmunityActive;
         }
     }
 }

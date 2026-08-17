@@ -154,6 +154,12 @@ namespace Return
             private int _selectedIndex;
             private bool _enabled;
 
+            /// <summary>
+            /// Hides the scene-2 placement debug HUD in every scene. The
+            /// keyboard placement controls (F4/F5/F6) still work silently.
+            /// </summary>
+            public static bool SuppressHud = true;
+
             public void Initialize(
                 ReturnMod mod,
                 Transform root,
@@ -293,6 +299,11 @@ namespace Return
 
             private void OnGUI()
             {
+                if (SuppressHud)
+                {
+                    return;
+                }
+
                 if (_mod == null ||
                     _targets.Count == 0 ||
                     _selectedIndex >= _targets.Count)

@@ -1,3 +1,4 @@
+using HarmonyLib;
 using OWML.Common;
 using System;
 using System.Collections;
@@ -573,6 +574,189 @@ namespace Return
             ) * OrbitRadius;
             _blackHole.localPosition = offset;
             _whiteHole.localPosition = -offset;
+        }
+    }
+
+    /// <summary>
+    /// Shows the "if you feel lost, hug the little blue fish" hint as a
+    /// title-screen popup, in the same style as the vanilla startup popups
+    /// (title plus a Continue prompt). It appears once each time the title
+    /// menu finishes its entry animation.
+    /// </summary>
+    [HarmonyPatch(typeof(TitleScreenManager), "OnTitleMenuAnimationComplete")]
+    internal static class ReturnTitleMenuHintPopupPatch
+    {
+        private const string HintKey = "$RETURN_ENTRY_HINT";
+        private static bool _shownSinceTitleLoad;
+
+        public static void ResetShownFlag()
+        {
+            _shownSinceTitleLoad = false;
+        }
+
+        private static void Postfix(TitleScreenManager __instance)
+        {
+            if (_shownSinceTitleLoad ||
+                __instance == null ||
+                LoadManager.GetCurrentScene() != OWScene.TitleScreen)
+            {
+                return;
+            }
+            _shownSinceTitleLoad = true;
+
+            try
+            {
+                Traverse manager = Traverse.Create(__instance);
+                PopupMenu popup = manager
+                    .Field("_okCancelPopup")
+                    .GetValue<PopupMenu>();
+                if (popup == null)
+                {
+                    return;
+                }
+
+                ScreenPrompt continuePrompt = manager
+                    .Field("_continuePrompt")
+                    .GetValue<ScreenPrompt>();
+                string text = TranslateHint();
+
+                // Mirror the vanilla startup-popup flow: keep the input
+                // module live so the popup can be confirmed with the gamepad.
+                OWMenuInputModule inputModule = manager
+                    .Field("_inputModule")
+                    .GetValue<OWMenuInputModule>();
+                CanvasGroup raycastBlocker = manager
+                    .Field("_titleMenuRaycastBlocker")
+                    .GetValue<CanvasGroup>();
+                if (inputModule != null)
+                {
+                    inputModule.EnableInputs();
+                }
+                if (raycastBlocker != null)
+                {
+                    raycastBlocker.blocksRaycasts = false;
+                }
+
+                popup.OnPopupConfirm -= OnHintPopupClosed;
+                popup.OnPopupCancel -= OnHintPopupClosed;
+                popup.ResetPopup();
+                popup.SetUpPopup(
+                    text,
+                    InputLibrary.menuConfirm,
+                    null,
+                    continuePrompt,
+                    null,
+                    true,
+                    false
+                );
+                popup.OnPopupConfirm += OnHintPopupClosed;
+                popup.OnPopupCancel += OnHintPopupClosed;
+                popup.EnableMenu(true);
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN TITLE] Could not show the entry hint popup: " +
+                    exception,
+                    MessageType.Warning
+                );
+            }
+        }
+
+
+        /// <summary>
+        /// Re-selects the default main-menu button after the hint popup is
+        /// dismissed, so gamepad navigation keeps working. Without this the
+        /// popup steals the EventSystem selection and the title menu is left
+        /// with nothing selected (mouse still works, gamepad does not).
+        /// </summary>
+        private static void OnHintPopupClosed()
+        {
+            TitleScreenManager manager = UnityEngine.Object
+                .FindObjectOfType<TitleScreenManager>();
+            if (manager == null)
+            {
+                return;
+            }
+            Traverse traverse = Traverse.Create(manager);
+            PopupMenu popup = traverse
+                .Field("_okCancelPopup")
+                .GetValue<PopupMenu>();
+            if (popup != null)
+            {
+                popup.OnPopupConfirm -= OnHintPopupClosed;
+                popup.OnPopupCancel -= OnHintPopupClosed;
+            }
+
+            Selectable target = null;
+            Selectable resumeGame = traverse
+                .Field("_resumeGameButton")
+                .GetValue<Selectable>();
+            Selectable newGame = traverse
+                .Field("_newGameButton")
+                .GetValue<Selectable>();
+            if (resumeGame != null &&
+                resumeGame.gameObject.activeInHierarchy &&
+                resumeGame.interactable)
+            {
+                target = resumeGame;
+            }
+            else if (newGame != null &&
+                newGame.gameObject.activeInHierarchy &&
+                newGame.interactable)
+            {
+                target = newGame;
+            }
+            if (target == null)
+            {
+                target = newGame;
+            }
+            if (target == null)
+            {
+                return;
+            }
+            SelectableAudioPlayer audioPlayer =
+                target.GetComponent<SelectableAudioPlayer>();
+            if (audioPlayer != null)
+            {
+                audioPlayer.SilenceNextSelectEvent();
+            }
+            OWMenuInputModule menuInput = Locator.GetMenuInputModule();
+            if (menuInput != null)
+            {
+                menuInput.SelectOnNextUpdate(target);
+            }
+        }
+
+        private static string TranslateHint()
+        {
+            ReturnMod mod = ReturnMod.Instance;
+            if (mod?.NewHorizons != null)
+            {
+                string translated = mod.NewHorizons.GetTranslationForUI(
+                    HintKey
+                );
+                if (!string.IsNullOrEmpty(translated) &&
+                    translated != HintKey)
+                {
+                    return translated;
+                }
+            }
+            return "If you feel lost, try hugging the little blue fish. " +
+                "Remember to check your ship log.";
+        }
+    }
+
+    /// <summary>
+    /// Re-arms the hint popup each time the TitleScreen scene finishes
+    /// loading, so returning to the main menu shows it again.
+    /// </summary>
+    [HarmonyPatch(typeof(TitleScreenManager), "OnCompleteSceneLoad")]
+    internal static class ReturnTitleMenuHintResetPatch
+    {
+        private static void Postfix()
+        {
+            ReturnTitleMenuHintPopupPatch.ResetShownFlag();
         }
     }
 }

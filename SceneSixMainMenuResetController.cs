@@ -49,6 +49,35 @@ namespace Return
             }
         }
 
+        internal static void PrepareFreshLoopReset()
+        {
+            if (!SceneSixController.IsActive ||
+                LoadManager.GetCurrentScene() != OWScene.SolarSystem)
+            {
+                return;
+            }
+
+            try
+            {
+                SceneSixController.MarkRevivalCheckpoint();
+                ClearHeldCoreReference();
+                ClearNewHorizonsHeldItemState();
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN FRESH LOOP] Held items cleared; next " +
+                    "SolarSystem load starts a fresh 17-minute loop.",
+                    MessageType.Success
+                );
+            }
+            catch (Exception exception)
+            {
+                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    "[RETURN FRESH LOOP] Cleanup failed safely: " +
+                    exception,
+                    MessageType.Error
+                );
+            }
+        }
+
         private static void ClearHeldCoreReference()
         {
             ToolModeSwapper swapper = Locator.GetToolModeSwapper();
@@ -200,6 +229,72 @@ namespace Return
             {
                 SceneSixMainMenuResetController.PrepareForMainMenu();
             }
+        }
+    }
+
+    [HarmonyPatch(
+        typeof(UITextLibrary),
+        nameof(UITextLibrary.GetString)
+    )]
+    internal static class ReturnPauseMeditateTextPatch
+    {
+        private static void Postfix(
+            ref string __result,
+            UITextType TextID
+        )
+        {
+            if (SceneSixController.IsActive &&
+                TextID == UITextType.PauseMeditate)
+            {
+                __result = GetMeditateToEndText();
+            }
+        }
+
+        private static string GetMeditateToEndText()
+        {
+            ReturnMod mod = ReturnMod.Instance;
+            if (mod?.NewHorizons != null)
+            {
+                string translated = mod.NewHorizons.GetTranslationForUI(
+                    "$RETURN_MEDITATE_TO_END"
+                );
+                if (!string.IsNullOrEmpty(translated) &&
+                    translated != "$RETURN_MEDITATE_TO_END")
+                {
+                    return translated;
+                }
+            }
+
+            TextTranslation translations = TextTranslation.Get();
+            if (translations != null &&
+                translations.GetLanguage() ==
+                    TextTranslation.Language.CHINESE_SIMPLE)
+            {
+                return "冥想到终点";
+            }
+            return "Meditate to the End";
+        }
+    }
+
+    [HarmonyPatch(
+        typeof(PlayerData),
+        nameof(PlayerData.ResetGame)
+    )]
+    internal static class ReturnNewGameStartsSceneOnePatch
+    {
+        [HarmonyPostfix]
+        private static void Postfix()
+        {
+            SceneSixController.ResetForNewGame();
+            SceneSixDeathLegendComputerController
+                .ResetProgressState();
+            ReturnSceneSixCheckpointPersistenceController
+                .CancelPendingTitleScreenSave();
+            ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                "[RETURN NEW GAME] Scene-6 checkpoint cleared; the new " +
+                "expedition starts from Scene 1 (the Nomai mine).",
+                MessageType.Success
+            );
         }
     }
 }

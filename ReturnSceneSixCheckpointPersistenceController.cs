@@ -25,6 +25,11 @@ namespace Return
             _savePending = true;
         }
 
+        public static void CancelPendingTitleScreenSave()
+        {
+            _savePending = false;
+        }
+
         public static void SaveFromTitleScreen(ReturnMod mod)
         {
             if (!_savePending || _saveRoutineRunning || mod == null)
@@ -89,6 +94,14 @@ namespace Return
                    Time.realtimeSinceStartup < timeout)
             {
                 yield return null;
+            }
+
+            // A new expedition may reset the save while this routine is
+            // waiting; never write the stale scene-six checkpoint into it.
+            if (!_savePending)
+            {
+                _saveRoutineRunning = false;
+                yield break;
             }
 
             try
