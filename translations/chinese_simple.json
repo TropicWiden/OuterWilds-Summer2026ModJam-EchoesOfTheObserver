@@ -8,6 +8,7 @@
     "RETURN_GIANT_DEEP_SECRET_NAME": "深巨星的秘密",
     "RETURN_GIANT_DEEP_SECRET_RUMOR_TEXT": "早期的深巨星核心是一座监狱",
     "RETURN_GIANT_DEEP_SECRET_REVEAL_TEXT": "戴兹向我同步了信息，早期深巨星的核心是有入口的，入口后是一座“监狱”，任何物体进入后都会被困在其中，动弹不得。\n\n戴兹建议我别靠近那里。\n\n“监狱”内复活功能会失效。",
+    "RETURN_GIANT_DEEP_SECRET_ABSORBED_TEXT": "你向监狱发射了奇点，奇点被监狱吸收了，奇点始终位于深巨星核心。",
     "RETURN_REVIVE_DEVICE_NAME": "复活装置",
     "RETURN_REVIVE_DEVICE_RUMOR_TEXT": "复活到飞船或碎空星基地",
     "RETURN_REVIVE_DEVICE_REVEAL_TEXT": "戴兹为我制作了复活装置，身处危险时，我可以随时复活到飞船或碎空星基地。\n\n她提醒我别按错键了。",
@@ -94,8 +95,8 @@
     "$RETURN_VICTORY_DIALOGUE_16": "你：探索与好奇，从来不是附着在你们身上的某种生存特质。",
     "$RETURN_VICTORY_DIALOGUE_17": "你：你们本身，就是这宇宙中名为“探索与好奇”的具象化存在。",
     "$RETURN_VICTORY_DIALOGUE_18": "你：是你们的好奇心在赋予宇宙意义，而不是宇宙在定义你们。",
-    "$RETURN_PRISON_TRAPPED_HINT": "你被困在深巨星核心的监狱里。\n\n下键：回收黑洞与白洞\n上键：复活到飞船\n暂停菜单：复活到碎空星基地\n退出到主界面可重新开始游戏",
-    "If you feel lost, check your ship log and map.": "如果你感到迷茫，看看飞船日志和地图。"
+    "$RETURN_PRISON_TRAPPED_HINT": "你被困在深巨星核心的监狱里。\n\n被监狱吸收的奇点无法回收。\n你无法在此复活到飞船或碎空星基地。\n打开暂停菜单，选择“冥想到下一个新宇宙”离开。",
+    "If you feel lost, check your ship log.": "如果你感到迷茫，请查看飞船日志。"
   },
   "UIDictionary": {
     "$RETURN_INTRO_AGE": "143亿年后",
@@ -116,16 +117,19 @@
     "$RETURN_PORTAL_RECALLED": "已回收黑洞与白洞。",
     "$RETURN_PORTAL_REVIVED": "复活完成。",
     "$RETURN_PORTAL_ABSORBED": "奇点已被吸收。",
+    "$RETURN_PORTAL_ABSORBED_NO_RECALL": "奇点已被监狱吸收，无法回收。",
     "$RETURN_PORTAL_REVIVE_FAILED": "复活装置启动失败。",
     "$RETURN_PORTAL_REVIVE_NEED_CORE": "复活到碎空星基地需要手持跃迁核心。",
     "$RETURN_PORTAL_MARKER_BLACK": "黑洞端点",
     "$RETURN_PORTAL_MARKER_WHITE": "白洞端点",
     "$RETURN_PORTAL_IMPACT_HINT": "你进入黑洞时是具有初速的哦，初速度为你相对于星球的运动速度和星球本身运动速度的叠加。从白洞出来时，速度会被保留。\n\n因此，当你打算进入黑洞时，需要考虑清楚，上述速度是否会让你因碰撞而死。",
     "$RETURN_DEATH_ENDING": "闯入者靠近太阳时，外壳破裂，幽灵物质释放，杀死了挪麦家族。\n\n 你作为一条水中之鱼逃过一劫，渴望在下一个宇宙里重新拯救挪麦。",
+    "$RETURN_DEATH_ENDING_2": "虽然闯入者没有在太阳系爆炸，释放幽灵物质，但是它流浪到其他星系，杀死了那里的挪麦家族。\n\n 新的宇宙里，你打算更妥善地处理闯入者。",
     "$RETURN_TRUE_ENDING": "星际拓荒曾陪伴我走过人生中最艰难的时光。\n那时，我遭受合作伙伴的被刺，感知到无处不在的恶意，对生活失去希望。\n星际拓荒用十几个小时的游戏体验治愈了我。\n\n它让我明白：\n人活在世，是为了感知美好。\n探索科学未知，感受宇宙之美，我的人生应该由此组成。\n\n人有恶意，但宇宙并没有恶意，所以我的人生要继续。\n\n于是现在，我依旧活在世上，依旧做有关地球物理的科学研究工作，也依然是一名小说作家。\n我喜欢科学，也喜欢科幻故事。因为它们很美。\n\n这个游戏模组是我花费十多个小时制作的。\n在此之前，我没有任何游戏制作基础，我不会写C#，也不会使用Unity。\n我用最笨拙的方式制作了这个模组，调试了103个版本。我感到辛苦。\n但我觉得值得。\n\n能玩到星际拓荒和一系列优秀模组，大概是宇宙给予我的善意吧。\n我想把我所体验过的美好传递下去。\n如果你通关了，并读到这段话，谢谢你。\n\n希望你一生顺遂。",
-    "$RETURN_PRISON_TRAPPED_HINT": "你被困在深巨星核心的监狱里。\n\n下键：回收黑洞与白洞\n上键：复活到飞船\n暂停菜单：复活到碎空星基地\n退出到主界面可重新开始游戏",
+    "$RETURN_PRISON_TRAPPED_HINT": "你被困在深巨星核心的监狱里。\n\n被监狱吸收的奇点无法回收。\n你无法在此复活到飞船或碎空星基地。\n打开暂停菜单，选择“冥想到下一个新宇宙”离开。",
     "$RETURN_PORTAL_REVIVE_CHECKPOINT_MENU": "复活到碎空星基地",
     "$RETURN_GRAVITY_UPDATED": "深巨星表面重力：{0} 米/秒²",
-    "$RETURN_ENTRY_HINT": "如果你感到迷茫，请试着拥抱蓝色小鱼。记得看看飞船日志。"
+    "$RETURN_ENTRY_HINT": "如果你感到迷茫，请试着拥抱蓝色小鱼。记得看看飞船日志。",
+    "$RETURN_SCENE6_ENTRY_HINT": "如果你感到迷茫，请查看飞船日志。"
   }
 }

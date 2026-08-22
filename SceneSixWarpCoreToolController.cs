@@ -28,12 +28,21 @@ namespace Return
         public ReturnPortalType PortalType { get; private set; }
         public bool Launched { get; set; }
 
+        /// <summary>
+        /// True once the Giant's Deep core prison has absorbed this
+        /// endpoint. Absorbed singularities stay inside the prison forever:
+        /// they keep working as the prison's receiving ends, but can no
+        /// longer be recalled or re-launched.
+        /// </summary>
+        public bool Absorbed { get; set; }
+
         public OWRigidbody Body { get; private set; }
 
         public void Initialize(ReturnPortalType portalType)
         {
             PortalType = portalType;
             Launched = false;
+            Absorbed = false;
             Body = GetComponent<OWRigidbody>();
             if (!ActiveEndpoints.Contains(this))
             {
@@ -150,7 +159,7 @@ namespace Return
                 _trigger.enabled = true;
             }
             _armed = true;
-            _mod?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN PORTAL VOLUME ARMED] type=" +
                 _endpoint.PortalType + ".",
                 MessageType.Success
@@ -284,7 +293,7 @@ namespace Return
                 Physics.SyncTransforms();
             }
 
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN PORTAL TRANSIT] body=" + body.name +
                 "; from=" + _endpoint.PortalType +
                 "; to=" + destination.PortalType +
@@ -484,7 +493,7 @@ namespace Return
                 renderer.enabled = true;
             }
 
-            _mod?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN PORTAL VISUAL READY] type=" + _portalType +
                 "; state=" + _singularity.GetState() +
                 "; rendererEnabled=" +
@@ -692,7 +701,7 @@ namespace Return
             InitializePrompts();
             RefreshPromptText(force: true);
 
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN WARP TOOL] Controls attached to " +
                 core.gameObject.name +
                 "; black=toolOptionLeft; white=toolOptionRight; " +
@@ -777,10 +786,10 @@ namespace Return
 
             bool trapped =
                 Build111SimpleCorePrisonController.IsPlayerTrapped;
-            bool launchBlack = OWInput.IsNewlyPressed(
+            bool launchBlack = !trapped && OWInput.IsNewlyPressed(
                 InputLibrary.toolOptionLeft
             );
-            bool launchWhite = OWInput.IsNewlyPressed(
+            bool launchWhite = !trapped && OWInput.IsNewlyPressed(
                 InputLibrary.toolOptionRight
             );
             bool reviveShip = !trapped && OWInput.IsNewlyPressed(
@@ -869,10 +878,12 @@ namespace Return
         }
 
         /// <summary>
-        /// Recalls every launched portal endpoint. Destroying the scout
+        /// Recalls every launched portal endpoint that has not been
+        /// absorbed by the Giant's Deep prison. Destroying the scout
         /// carrier also removes its transport volume, singularity visuals,
         /// HUD label and map marker, and the tool is then free to launch a
-        /// fresh black hole or white hole.
+        /// fresh black hole or white hole. Absorbed endpoints are permanent
+        /// parts of the prison and are never recalled.
         /// </summary>
         internal void RecallPortals()
         {
@@ -888,12 +899,15 @@ namespace Return
             int recalled = 0;
             foreach (ReturnPortalEndpoint endpoint in endpoints)
             {
-                if (endpoint == null || !endpoint.Launched)
+                if (endpoint == null || !endpoint.Launched ||
+                    endpoint.Absorbed)
                 {
                     continue;
                 }
 
                 GameObject carrier = endpoint.gameObject;
+                bool isBlack =
+                    endpoint.PortalType == ReturnPortalType.Black;
                 endpoint.Launched = false;
                 ReturnPortalTransportVolume[] volumes =
                     carrier.GetComponentsInChildren<
@@ -918,17 +932,23 @@ namespace Return
                     }
                 }
                 UnityEngine.Object.Destroy(carrier);
+                if (isBlack)
+                {
+                    _blackLaunched = false;
+                }
+                else
+                {
+                    _whiteLaunched = false;
+                }
                 recalled++;
             }
 
-            _blackLaunched = false;
-            _whiteLaunched = false;
             RefreshPromptText();
 
             if (recalled > 0)
             {
                 PostNotification("$RETURN_PORTAL_RECALLED");
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL RECALL] Recalled " + recalled +
                     " portal endpoint(s); relaunch is now available.",
                     MessageType.Success
@@ -936,7 +956,7 @@ namespace Return
             }
             else
             {
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL RECALL] No launched portal endpoint " +
                     "was available to recall.",
                     MessageType.Info
@@ -986,7 +1006,7 @@ namespace Return
                 }
                 catch (Exception exception)
                 {
-                    ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN PORTAL MARKER] Could not disable the " +
                         "stock scout map marker: " + exception.Message,
                         MessageType.Warning
@@ -1111,7 +1131,7 @@ namespace Return
                 }
                 catch (Exception exception)
                 {
-                    _mod?.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN PORTAL LAUNCH] The probe-ignore broadcast " +
                         "failed for the cloned carrier: " + exception.Message,
                         MessageType.Warning
@@ -1121,7 +1141,7 @@ namespace Return
 
             if (ignoredPairs > 0)
             {
-                _mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL LAUNCH] Carrier colliders ignore the " +
                     "player; pairs=" + ignoredPairs + ".",
                     MessageType.Success
@@ -1262,7 +1282,7 @@ namespace Return
                         ? "$RETURN_PORTAL_LAUNCHED_BLACK"
                         : "$RETURN_PORTAL_LAUNCHED_WHITE"
                 );
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL LAUNCH] type=" + portalType +
                     "; position=" + probe.GetOWRigidbody().GetPosition() +
                     "; velocity=" + probe.GetOWRigidbody().GetVelocity() +
@@ -1289,7 +1309,7 @@ namespace Return
                 UnityEngine.Object.Destroy(clone);
             }
             PostNotification("$RETURN_PORTAL_LAUNCH_FAILED");
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN PORTAL LAUNCH] Failed without affecting " +
                 "Scene 6: " + exception,
                 MessageType.Error
@@ -1333,7 +1353,7 @@ namespace Return
                     renderer.enabled = true;
                 }
                 ApplyPortalMaterialFallback(carrier, portalType);
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL VISUAL] The vanilla " + portalType +
                     " singularity model was unavailable; material fallback " +
                     "was used.",
@@ -1383,7 +1403,7 @@ namespace Return
                     );
                 }
 
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL VISUAL] type=" + portalType +
                     "; source=" + source.name +
                     "; scale=" + visual.transform.localScale + ".",
@@ -1421,7 +1441,7 @@ namespace Return
                         ReturnPortalTransportVolume>();
                 transport.Initialize(_mod, endpoint);
 
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL VOLUME] type=Black; radius=" +
                     trigger.radius.ToString("F2") +
                     "; direction=BlackToWhite; paired=" +
@@ -1431,7 +1451,7 @@ namespace Return
             }
             else
             {
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL VOLUME] type=White; exitOnly=True.",
                     MessageType.Success
                 );
@@ -1483,7 +1503,7 @@ namespace Return
             multiplier = Mathf.Clamp(multiplier, 0.0001f, 1f);
             visual.transform.localScale =
                 sourceTransform.localScale * multiplier;
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN WHITE PORTAL SCALE] sourceRadius=" +
                 sourceShaderRadius.ToString("F3") +
                 "; multiplier=" + multiplier.ToString("F5") +
@@ -1553,7 +1573,7 @@ namespace Return
             Material source = FindMaterial(preferredNames);
             if (source == null)
             {
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL MATERIAL] No vanilla " + portalType +
                     " singularity material was loaded; the physics carrier " +
                     "kept its scout material.",
@@ -1588,7 +1608,7 @@ namespace Return
                 rendererCount++;
             }
 
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN PORTAL MATERIAL] type=" + portalType +
                 "; source=" + source.name +
                 "; renderers=" + rendererCount + ".",
@@ -1727,7 +1747,7 @@ namespace Return
             catch (Exception exception)
             {
                 PostNotification("$RETURN_PORTAL_REVIVE_FAILED");
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN REVIVE] Ship revival failed without " +
                     "affecting Scene 6: " + exception,
                     MessageType.Error
@@ -1763,7 +1783,7 @@ namespace Return
                         )
                     );
                 }
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN REVIVE] Player revived in the ship cockpit " +
                     "without resetting the loop.",
                     MessageType.Success
@@ -1894,7 +1914,7 @@ namespace Return
             catch (Exception exception)
             {
                 PostNotification("$RETURN_PORTAL_REVIVE_FAILED");
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN REVIVE] Failed without affecting Scene 6: " +
                     exception,
                     MessageType.Error
@@ -1907,7 +1927,7 @@ namespace Return
                 SceneSixWarpCoreToolController.ClearShipEntranceState();
                 SceneSixEndingController.ClearPlayerPortalTransit();
                 PostNotification("$RETURN_PORTAL_REVIVED");
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN REVIVE] Player returned to the Brittle Hollow " +
                     "gravity-cannon checkpoint without resetting the loop.",
                     MessageType.Success
@@ -1936,6 +1956,20 @@ namespace Return
             {
                 _whiteLaunched = launched;
             }
+        }
+
+        private bool HasRecallablePortal()
+        {
+            foreach (ReturnPortalEndpoint endpoint in
+                ReturnPortalEndpoint.ActiveEndpoints)
+            {
+                if (endpoint != null && endpoint.Launched &&
+                    !endpoint.Absorbed)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private void RefreshPromptText(bool force = false)
@@ -1974,7 +2008,7 @@ namespace Return
                 "$RETURN_PORTAL_RECALL_PROMPT"
             ));
             _recallPrompt.SetDisplayState(
-                (_blackLaunched || _whiteLaunched)
+                HasRecallablePortal()
                     ? ScreenPrompt.DisplayState.Normal
                     : ScreenPrompt.DisplayState.GrayedOut
             );
@@ -2110,7 +2144,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN SHIP ENTRANCE] Could not fire ExitShip: " +
                     exception.Message,
                     MessageType.Warning
@@ -2146,7 +2180,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN SHIP ENTRANCE] Could not reset the ship " +
                     "after an outside revive: " + exception.Message,
                     MessageType.Warning
@@ -2225,7 +2259,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN SHIP ENTRANCE] Could not reset the ship " +
                     "tractor beam: " + exception,
                     MessageType.Warning
@@ -2252,7 +2286,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN SHIP ENTRANCE] Could not reset the ship " +
                     "hatch: " + exception,
                     MessageType.Warning
@@ -2296,7 +2330,7 @@ namespace Return
                     }
                     catch (Exception exception)
                     {
-                        mod.ModHelper.Console.WriteLine(
+                        ReturnDebugLog.Write(
                             "[RETURN WARP TOOL] Initialization failed " +
                             "without affecting Scene 6: " + exception,
                             MessageType.Error
@@ -2311,7 +2345,7 @@ namespace Return
                 yield return new WaitForSecondsRealtime(0.1f);
             }
 
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN WARP TOOL] Return_PickableWarpCore was not found; " +
                 "Scene 6 was left untouched.",
                 MessageType.Warning
@@ -2374,7 +2408,7 @@ namespace Return
             }
             if (removed > 0)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN WARP TOOL] Removed " + removed +
                     " duplicate Return warp core instance(s) after reload.",
                     MessageType.Success
@@ -2490,7 +2524,7 @@ namespace Return
                 parent = parent.parent;
                 depth++;
             }
-            ReturnMod.Instance?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN CARRIER COLLISION] carrier=" +
                 gameObject.name + "; hit=" + path +
                 "; partOfGiantsDeep=" + partOfGiantsDeep,

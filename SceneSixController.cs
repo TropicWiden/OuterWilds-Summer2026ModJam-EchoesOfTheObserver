@@ -65,7 +65,7 @@ namespace Return
             // shows it only when loopCount > 1).
             PlayerData.SaveLoopCount(2);
             RestoreVanillaPlayerFunctions();
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 6] Resetting the loop and loading the " +
                 "Brittle Hollow gravity cannon start.",
                 MessageType.Success
@@ -111,7 +111,7 @@ namespace Return
 
             if (brittleHollow == null)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN SCENE 6] Could not find BrittleHollow_Body.",
                     MessageType.Error
                 );
@@ -134,7 +134,7 @@ namespace Return
 
             if (spawn == null)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN SCENE 6] Could not find " +
                     "SPAWN_GravityCannon on Brittle Hollow.",
                     MessageType.Error
@@ -153,7 +153,7 @@ namespace Return
                     out string trajectoryNote
                 ))
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INTERLOPER] First application failed " +
                     "verification: " + trajectoryNote +
                     "; re-applying the trajectory once.",
@@ -165,7 +165,7 @@ namespace Return
                         out trajectoryNote
                     ))
                 {
-                    mod.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN INTERLOPER] Re-application also failed " +
                         "verification: " + trajectoryNote + ".",
                         MessageType.Error
@@ -174,7 +174,7 @@ namespace Return
             }
             else
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INTERLOPER] Trajectory verification passed: " +
                     trajectoryNote + ".",
                     MessageType.Success
@@ -308,7 +308,7 @@ namespace Return
             // listener is synchronized without showing the suit mesh.
             GlobalMessenger.FireEvent("HelmetHUDActivated");
 
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 6] Player and ship placed beside the " +
                 "Brittle Hollow gravity cannon. Vanilla player functions " +
                 "restored; spacesuit visuals remain hidden. Scale=" +
@@ -330,7 +330,7 @@ namespace Return
                 mod.NewHorizons == null ||
                 brittleHollow == null)
             {
-                mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN COMPUTER] New Horizons or Brittle Hollow " +
                     "was unavailable.",
                     MessageType.Error
@@ -372,7 +372,7 @@ namespace Return
             }
             catch (System.Exception exception)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN COMPUTER] Failed to create the Nomai " +
                     "computer: " + exception,
                     MessageType.Error
@@ -382,7 +382,7 @@ namespace Return
 
             if (computer == null)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN COMPUTER] New Horizons returned no object.",
                     MessageType.Error
                 );
@@ -419,7 +419,7 @@ namespace Return
 
             computer.SetActive(true);
             Physics.SyncTransforms();
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN COMPUTER] Interactive Nomai computer placed at " +
                 "the recorded Brittle Hollow position.",
                 MessageType.Success

@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using OWML.Common;
 using System.Collections;
 using UnityEngine;
@@ -72,7 +72,7 @@ namespace Return
             _sceneRoot = sceneRoot;
             IsActive = true;
 
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 1 BOUNDARY] Armed; center=box center " +
                 "(root local " + BoxCenterLocal.x.ToString("F2") + ", " +
                 BoxCenterLocal.y.ToString("F2") + ", " +
@@ -187,7 +187,7 @@ namespace Return
 
             if (_mod != null)
             {
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN SCENE 1 BOUNDARY] Released; impact/death " +
                     "protection stays active for " +
                     ReleaseGraceSeconds.ToString("F1") +
@@ -209,7 +209,7 @@ namespace Return
             IsActive = false;
             if (_mod != null)
             {
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN SCENE 1 BOUNDARY] Protection ended; death enabled.",
                     MessageType.Success
                 );

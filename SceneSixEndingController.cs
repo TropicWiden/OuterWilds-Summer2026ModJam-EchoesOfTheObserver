@@ -40,6 +40,8 @@ namespace Return
         private static float _prisonReviveGraceUntil;
         private static float _reviveImpactImmunityUntil =
             float.NegativeInfinity;
+        private static string _terminalDeathKey =
+            "$RETURN_DEATH_ENDING";
 
         public static bool IsEndingActive => _endingActive;
 
@@ -54,6 +56,7 @@ namespace Return
             _prisonReviveGraceActive = false;
             _prisonReviveGraceUntil = float.NegativeInfinity;
             _reviveImpactImmunityUntil = float.NegativeInfinity;
+            _terminalDeathKey = "$RETURN_DEATH_ENDING";
 
             if (mod == null)
             {
@@ -178,6 +181,22 @@ namespace Return
             ClearPlayerPortalTransit();
         }
 
+        /// <summary>
+        /// Marks the "bad ending 2" terminal state: the Interloper did not
+        /// arrive near the Sun by the end of the 17-minute loop, so the
+        /// death-ending presentation shows the alternate bad-ending text.
+        /// </summary>
+        public static void MarkBadEnding2()
+        {
+            if (!SceneSixController.IsActive)
+            {
+                return;
+            }
+            _terminalDeathKey = "$RETURN_DEATH_ENDING_2";
+            _terminalDeathPending = true;
+            ClearPlayerPortalTransit();
+        }
+
         public static bool TryHandleLoopDeath(DeathManager deathManager)
         {
             if (!SceneSixController.IsActive ||
@@ -199,7 +218,7 @@ namespace Return
                 _mod.StartCoroutine(
                     RecoverInsideLoop(deathManager, false)
                 );
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN LOOP RECOVERY] Intercepted prison-revive " +
                     "impact; loop time will be preserved.",
                     MessageType.Success
@@ -221,10 +240,23 @@ namespace Return
             {
                 _portalRecoveryActive = true;
                 _mod.StartCoroutine(RecoverToFreshLoop(deathManager));
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN MEDITATION] Pause-menu meditation " +
                     "intercepted; starting a fresh 17-minute loop at " +
                     "the gravity cannon.",
+                    MessageType.Success
+                );
+                return true;
+            }
+
+            if (Build111SimpleCorePrisonController.IsPlayerTrapped)
+            {
+                _portalRecoveryActive = true;
+                _mod.StartCoroutine(RecoverTrappedInPrison(deathManager));
+                ReturnDebugLog.Write(
+                    "[RETURN LOOP RECOVERY] Death suppressed while the " +
+                    "player is trapped in the Giant's Deep prison; the " +
+                    "only exit is meditation.",
                     MessageType.Success
                 );
                 return true;
@@ -234,7 +266,7 @@ namespace Return
             _mod.StartCoroutine(
                 RecoverInsideLoop(deathManager, recentPortalImpact)
             );
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN LOOP RECOVERY] Intercepted " +
                 deathManager.GetDeathType() +
                 "; showPortalHint=" + recentPortalImpact +
@@ -302,7 +334,7 @@ namespace Return
                 }
                 else
                 {
-                    _mod.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN LOOP RECOVERY] Dialogue failed; reviving " +
                         "without leaving the player dead: " + setupException,
                         MessageType.Error
@@ -355,7 +387,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                _mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN MEDITATION] Fresh-loop cleanup failed: " +
                     exception,
                     MessageType.Error
@@ -364,7 +396,7 @@ namespace Return
 
             _portalRecoveryActive = false;
             yield return null;
-            _mod?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN MEDITATION] Starting the fresh loop.",
                 MessageType.Success
             );
@@ -374,6 +406,55 @@ namespace Return
                 1f,
                 true
             );
+        }
+
+        /// <summary>
+        /// Cancels a death while the player is trapped in the Giant's
+        /// Deep prison. The player stays a hidden prisoner at the core;
+        /// the only way out is the pause-menu meditation ("Meditate to
+        /// the next new universe").
+        /// </summary>
+        private static IEnumerator RecoverTrappedInPrison(
+            DeathManager deathManager
+        )
+        {
+            yield return new WaitForSecondsRealtime(0.5f);
+
+            try
+            {
+                Traverse death = Traverse.Create(deathManager);
+                death.Field("_isDying").SetValue(false);
+                death.Field("_isDead").SetValue(false);
+                death.Field("_resurrectAfterDelay").SetValue(false);
+                death.Field("_fakeMeditationDeath").SetValue(false);
+                deathManager.enabled = false;
+
+                RestorePlayerResourcesAndVisor();
+                RestoreDeathAudioMix();
+                RestoreGameplayInterfaces();
+
+                PauseCommandListener pause =
+                    Locator.GetPauseCommandListener();
+                if (pause != null)
+                {
+                    pause.RemovePauseCommandLock();
+                }
+                OWTime.SetTimeScale(1f);
+                OWInput.ChangeInputMode(InputMode.Character);
+                Physics.SyncTransforms();
+
+                Build111SimpleCorePrisonController.ReParkTrappedPlayer();
+            }
+            catch (Exception exception)
+            {
+                ReturnDebugLog.Write(
+                    "[RETURN LOOP RECOVERY] Trapped-player recovery " +
+                    "failed: " + exception,
+                    MessageType.Error
+                );
+            }
+
+            _portalRecoveryActive = false;
         }
 
         private static void ReviveAtCheckpoint(DeathManager deathManager)
@@ -452,7 +533,7 @@ namespace Return
                     prompts.SetPromptsVisible(true);
                 }
                 ClearPlayerPortalTransit();
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN LOOP RECOVERY] Player revived at the " +
                     "Brittle Hollow checkpoint; loop seconds=" +
                     InterloperTrajectoryController
@@ -462,7 +543,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                _mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN LOOP RECOVERY] Revival failed: " + exception,
                     MessageType.Error
                 );
@@ -483,7 +564,7 @@ namespace Return
             DeathManager deathManager = Locator.GetDeathManager();
             if (deathManager == null)
             {
-                _mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN MENU REVIVE] DeathManager was unavailable; " +
                     "cannot revive at the checkpoint.",
                     MessageType.Error
@@ -492,7 +573,7 @@ namespace Return
             }
 
             ReviveAtCheckpoint(deathManager);
-            _mod?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN MENU REVIVE] Player revived at the Brittle " +
                 "Hollow base from the pause menu; loop time preserved " +
                 "at " +
@@ -636,8 +717,8 @@ namespace Return
             );
             SceneSixController.MarkRevivalCheckpoint();
             TimeLoop.SetTimeLoopEnabled(false);
-            _overlay.ShowDeath();
-            _mod?.ModHelper.Console.WriteLine(
+            _overlay.ShowDeath(_terminalDeathKey);
+            ReturnDebugLog.Write(
                 "[RETURN ENDING] Terminal death displayed through the " +
                 "shared orange ending presentation.",
                 MessageType.Success
@@ -662,7 +743,7 @@ namespace Return
             SceneSixController.MarkRevivalCheckpoint();
             TimeLoop.SetTimeLoopEnabled(false);
             _overlay.Show();
-            _mod?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN ENDING] True ending started after the Interloper " +
                 "entered the Giant's Deep core portal.",
                 MessageType.Success
@@ -721,9 +802,11 @@ namespace Return
             ShowText("$RETURN_TRUE_ENDING", true, false);
         }
 
-        public void ShowDeath()
+        public void ShowDeath(
+            string translationKey = "$RETURN_DEATH_ENDING"
+        )
         {
-            ShowText("$RETURN_DEATH_ENDING", false, true);
+            ShowText(translationKey, false, true);
         }
 
         private void ShowText(

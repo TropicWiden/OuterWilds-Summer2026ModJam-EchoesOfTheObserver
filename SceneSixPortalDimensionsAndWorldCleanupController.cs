@@ -334,7 +334,7 @@ namespace Return
                 }
             }
 
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN WORLD CLEANUP] sunkenProbeModules=" +
                 sunkenModules + "; orbitalProbeCannonRoots=" +
                 disabledCannonRoots + "; hiddenFallbacks=" +

@@ -47,7 +47,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN TITLE] Registration failed without affecting " +
                     "gameplay: " + exception,
                     MessageType.Error
@@ -138,7 +138,7 @@ namespace Return
                 rig.AddComponent<ReturnTitleOrbitAnimator>();
             animator.Initialize(blackHole, whiteHole);
 
-            _mod?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN TITLE] Replaced the menu planet with an orbiting " +
                 "black-hole/white-hole pair.",
                 MessageType.Success
@@ -294,7 +294,7 @@ namespace Return
             Shader shader = Shader.Find("Outer Wilds/Effects/Singularity");
             if (shader == null)
             {
-                _mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN TITLE] The stock singularity shader was not " +
                     "available; retaining the safe fallback visual.",
                     MessageType.Warning
@@ -655,7 +655,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN TITLE] Could not show the entry hint popup: " +
                     exception,
                     MessageType.Warning

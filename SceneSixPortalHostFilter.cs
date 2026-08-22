@@ -147,7 +147,7 @@ namespace Return
 
                 if (detached > 0)
                 {
-                    ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN PORTAL HOST] Detached " + detached +
                         " portal carrier(s) from the player before " +
                         "the checkpoint warp.",
@@ -157,7 +157,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL HOST] Could not detach portal carriers " +
                     "before the checkpoint warp: " + exception.Message,
                     MessageType.Warning
@@ -218,7 +218,7 @@ namespace Return
                     binding.Clear();
                 }
 
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL HOST] Blocked anchoring type=" +
                     endpoint.PortalType + " to the player.",
                     MessageType.Success
@@ -227,7 +227,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL HOST] Player-anchor guard failed; " +
                     "falling back to the original anchor logic: " +
                     exception.Message,
@@ -279,7 +279,7 @@ namespace Return
                 }
                 binding.Bind(hostBody);
 
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL HOST] type=" +
                     endpoint.PortalType + "; host=" + hostBody.name + ".",
                     MessageType.Info
@@ -287,7 +287,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL HOST] Could not record the anchor host: " +
                     exception.Message,
                     MessageType.Warning
@@ -338,7 +338,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL HOST] Integrity notification " +
                     "suppression failed: " + exception.Message,
                     MessageType.Warning
@@ -441,7 +441,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL HOST] Host filter fell back to the " +
                     "original transport logic: " + exception.Message,
                     MessageType.Warning
@@ -560,7 +560,7 @@ namespace Return
                     true
                 );
 
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL OVERLAP] Physical collider scanner " +
                     "installed.",
                     MessageType.Success
@@ -569,7 +569,7 @@ namespace Return
             catch (Exception exception)
             {
                 _failed = true;
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL OVERLAP] Scanner initialization failed: " +
                     exception.Message,
                     MessageType.Warning
@@ -619,7 +619,7 @@ namespace Return
             if (count == ColliderBufferSize && !_bufferWarningWritten)
             {
                 _bufferWarningWritten = true;
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL OVERLAP] The collider buffer filled; " +
                     "nearby objects will continue to be checked on later " +
                     "physics steps.",
@@ -671,7 +671,7 @@ namespace Return
                 catch (Exception exception)
                 {
                     _failed = true;
-                    ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN PORTAL OVERLAP] Scanner forwarding failed: " +
                         exception.Message,
                         MessageType.Warning
@@ -703,7 +703,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PORTAL OVERLAP] Scanner installation failed: " +
                     exception.Message,
                     MessageType.Warning

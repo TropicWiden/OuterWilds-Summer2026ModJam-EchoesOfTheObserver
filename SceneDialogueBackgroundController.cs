@@ -289,7 +289,7 @@ namespace Return
         {
             if (_mod != null)
             {
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BACKDROP] " + message,
                     OWML.Common.MessageType.Warning
                 );

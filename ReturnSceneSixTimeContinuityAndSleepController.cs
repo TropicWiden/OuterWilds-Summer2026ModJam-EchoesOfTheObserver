@@ -41,7 +41,7 @@ namespace Return
                     _resetSceneHandle = activeSceneHandle;
                 }
                 TimeLoop.SetTimeLoopEnabled(true);
-                mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN CLOCK] Scene 6 epoch initialized; inherited " +
                     "seconds=" + inheritedSeconds.ToString("F2") +
                     "; scene6 seconds=" +
@@ -52,7 +52,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN CLOCK] Failed safely while starting the " +
                     "Scene 6 clock: " + exception,
                     MessageType.Error
@@ -125,7 +125,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN CLOCK] Terminal sleep cleanup failed safely: " +
                     exception,
                     MessageType.Error

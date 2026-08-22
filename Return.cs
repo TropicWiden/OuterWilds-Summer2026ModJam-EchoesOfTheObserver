@@ -43,7 +43,7 @@ namespace Return
 
         public void Start()
         {
-            ModHelper.Console.WriteLine("Return is loaded!", MessageType.Success);
+            ReturnDebugLog.Write("Return is loaded!", MessageType.Success);
 
             NewHorizons = ModHelper.Interaction.TryGetModApi<INewHorizons>(
                 "xen.NewHorizons"
@@ -56,7 +56,7 @@ namespace Return
             }
             else
             {
-                ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "Return could not access the New Horizons API.",
                     MessageType.Error
                 );
@@ -215,7 +215,7 @@ namespace Return
             _timberHearthBody = FindSceneBody("TimberHearth_Body");
             if (_timberHearthBody == null)
             {
-                ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "Could not find the Timber Hearth rigidbody.",
                     MessageType.Error
                 );
@@ -279,7 +279,7 @@ namespace Return
             _mineWarpCompleted = true;
             ShowIntroTitle();
 
-            ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 1] Original water restored. The fish box is on " +
                 "the mine floor, geysers are disabled, the translator is blocked, " +
                 "and silent suit movement is active with all suit geometry hidden. " +
@@ -346,7 +346,7 @@ namespace Return
             OWTime.Unpause(OWTime.PauseType.Sleeping);
             cameraEffects.WakeUp();
 
-            ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN INTRO] Completed the second, in-world wake " +
                 "confirmation behind the black cover.",
                 MessageType.Info
@@ -427,7 +427,7 @@ namespace Return
             trigger.size = new Vector3(1.9f, 1.4f, 1.25f);
             triggerObject.AddComponent<ReturnFishBoxTrigger>();
 
-            ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 $"[RETURN SCENE 1 BOX] Local position: " +
                 $"({MineBoxFloorLocalPosition.x:F3}, " +
                 $"{MineBoxFloorLocalPosition.y:F3}, " +
@@ -652,7 +652,7 @@ namespace Return
 
             if (foundCount == 0)
             {
-                ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN NOMAI] No mine Nomai props were found.",
                     MessageType.Error
                 );
@@ -676,7 +676,7 @@ namespace Return
                 Transform npc = nomai[i];
                 if (npc == null)
                 {
-                    ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN NOMAI] A mine Nomai prop was not found; " +
                         "its dialogue trigger could not be attached.",
                         MessageType.Error
@@ -727,7 +727,7 @@ namespace Return
                     _timberHearthBody.transform.InverseTransformPoint(
                         npc.position
                     );
-                ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     $"[RETURN NOMAI POSITION] {npc.name}: " +
                     $"({localPosition.x:F3}, {localPosition.y:F3}, " +
                     $"{localPosition.z:F3})",
@@ -736,7 +736,7 @@ namespace Return
             }
 
             Physics.SyncTransforms();
-            ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 $"[RETURN NOMAI] Oriented and attached dialogue to " +
                 $"{foundCount} mine Nomai.",
                 MessageType.Success
@@ -763,7 +763,7 @@ namespace Return
 
             if (dialogue == null)
             {
-                ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     $"[RETURN DIALOGUE] Failed to create trigger for {npc.name}.",
                     MessageType.Error
                 );
@@ -843,7 +843,7 @@ namespace Return
                 createdCount++;
             }
 
-            ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 $"[RETURN LIGHTING] Embedded {createdCount} Nomai wall lamp(s) " +
                 "around the fish box.",
                 createdCount > 0 ? MessageType.Success : MessageType.Warning
@@ -1020,7 +1020,7 @@ namespace Return
 
             if (!heardMiningDialogue)
             {
-                ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN STORY] Fish box touched before the mining-team " +
                     "dialogue was completed. Scene 2 remains locked.",
                     MessageType.Info
@@ -1029,7 +1029,7 @@ namespace Return
             }
 
             _enteredFishBox = true;
-            ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN STORY] Mining-team dialogue completed and fish box " +
                 "touched. Loading the Scene 2 placeholder.",
                 MessageType.Success
@@ -1181,7 +1181,7 @@ namespace Return
                 }
             }
 
-            ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 $"[RETURN GEYSER] Disabled {disabledCount} mine geyser controller(s).",
                 MessageType.Info
             );
@@ -1213,7 +1213,7 @@ namespace Return
                 _timberHearthBody.GetRotation()
             ) * playerBody.GetRotation();
 
-            ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 $"[RETURN SPAWN] Position: " +
                 $"({localPosition.x:F3}, {localPosition.y:F3}, {localPosition.z:F3}); " +
                 $"Rotation: ({localRotation.x:F4}, {localRotation.y:F4}, " +

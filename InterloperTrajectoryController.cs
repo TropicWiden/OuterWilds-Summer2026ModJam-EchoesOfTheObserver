@@ -57,7 +57,7 @@ namespace Return
             OrbitSettings settings = LoadSettings(mod);
             if (settings == null || !settings.enabled)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INTERLOPER] Custom trajectory is disabled.",
                     MessageType.Info
                 );
@@ -69,7 +69,7 @@ namespace Return
             OWRigidbody target = FindBody(settings.targetBodyName);
             if (sun == null || comet == null || target == null)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INTERLOPER] Could not find the configured Sun, " +
                     "Interloper, or interception target.",
                     MessageType.Error
@@ -85,7 +85,7 @@ namespace Return
                 : sunGravity.GetStandardGravitationalParameter();
             if (gravitationalParameter <= 0f)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INTERLOPER] The Sun's gravitational parameter " +
                     "could not be read.",
                     MessageType.Error
@@ -102,7 +102,7 @@ namespace Return
                 currentLoopSeconds;
             if (secondsToIntercept < settings.minimumInterceptLeadSeconds)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INTERLOPER] The configured interception time " +
                     "has already passed or is too close.",
                     MessageType.Error
@@ -208,7 +208,7 @@ namespace Return
                 startState.velocity,
                 startState.position.normalized
             );
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN INTERLOPER] Applied inbound trajectory. Start " +
                 "distance=" + Format(startState.position.magnitude) +
                 " m; initial speed=" + Format(startState.velocity.magnitude) +
@@ -240,7 +240,7 @@ namespace Return
 
             if (radialVelocity >= 0f)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INTERLOPER] The calculated initial velocity was " +
                     "not inbound, so the trajectory was not safe to use.",
                     MessageType.Error
@@ -557,7 +557,7 @@ namespace Return
             );
             if (!File.Exists(path))
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INTERLOPER] Settings file was not found; using " +
                     "built-in defaults: " + path,
                     MessageType.Warning
@@ -572,7 +572,7 @@ namespace Return
                     settings
                 );
                 settings.Validate();
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INTERLOPER] Loaded trajectory settings: " + path,
                     MessageType.Info
                 );
@@ -580,7 +580,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INTERLOPER] Failed to read trajectory settings: " +
                     exception.Message,
                     MessageType.Error
@@ -790,6 +790,8 @@ namespace Return
         private float _radiusTolerance;
         private float _previousRadialVelocity;
         private bool _triggered;
+        private const float DeadlineNearSunExtraToleranceMeters =
+            1000f;
 
         public static void Install(
             OWRigidbody comet,
@@ -865,6 +867,10 @@ namespace Return
             {
                 TriggerTerminalDeath(radius);
             }
+            else
+            {
+                TryTriggerBadEnding2(radius);
+            }
             _previousRadialVelocity = radialVelocity;
         }
 
@@ -874,7 +880,7 @@ namespace Return
             SceneSixEndingController.MarkTerminalDeath();
             SceneSixController.MarkRevivalCheckpoint();
             TimeLoop.SetTimeLoopEnabled(false);
-            _mod?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN TERMINAL] Interloper reached periapsis at " +
                 actualRadius.ToString("F2", CultureInfo.InvariantCulture) +
                 " m. Triggering death outside the time loop.",
@@ -889,6 +895,51 @@ namespace Return
                 deathManager.KillPlayer(DeathType.Energy);
             }
         }
+
+        private void TryTriggerBadEnding2(float radius)
+        {
+            if (_triggered ||
+                SceneSixEndingController.IsEndingActive)
+            {
+                return;
+            }
+
+            float elapsed = InterloperTrajectoryController
+                .GetSceneSixElapsedSeconds();
+            if (elapsed <
+                InterloperTrajectoryController.TerminalLoopTimeSeconds)
+            {
+                return;
+            }
+
+            float nearSunRadius = _terminalRadius + _radiusTolerance +
+                DeadlineNearSunExtraToleranceMeters;
+            if (radius <= nearSunRadius)
+            {
+                return;
+            }
+
+            DeathManager deathManager = Locator.GetDeathManager();
+            if (deathManager == null ||
+                deathManager.IsPlayerDying() ||
+                deathManager.IsPlayerDead())
+            {
+                return;
+            }
+
+            _triggered = true;
+            SceneSixEndingController.MarkBadEnding2();
+            SceneSixController.MarkRevivalCheckpoint();
+            TimeLoop.SetTimeLoopEnabled(false);
+            ReturnDebugLog.Write(
+                "[RETURN TERMINAL] Interloper was not near the Sun at " +
+                "the 17-minute deadline (radius=" +
+                radius.ToString("F2", CultureInfo.InvariantCulture) +
+                " m). Triggering bad ending 2.",
+                MessageType.Success
+            );
+            deathManager.KillPlayer(DeathType.Energy);
+        }
     }
 
     internal sealed class FrozenSunProgressionController : MonoBehaviour
@@ -902,7 +953,7 @@ namespace Return
                 sun.GetComponent<SunController>();
             if (sunController == null)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN SUN] Could not find SunController.",
                     MessageType.Error
                 );
@@ -918,7 +969,7 @@ namespace Return
                     FrozenSunProgressionController>();
             }
             freezer.Initialize(sunController);
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SUN] Solar aging and expansion frozen at the " +
                 "initial state; collapse and supernova remain enabled.",
                 MessageType.Success
@@ -1013,7 +1064,7 @@ namespace Return
 
             if (original == null)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INTERLOPER MAP] Could not find OrbitLine_CO.",
                     MessageType.Error
                 );
@@ -1042,7 +1093,7 @@ namespace Return
                 minimumSolarRadius
             );
 
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN INTERLOPER MAP] Replaced the cached vanilla ellipse " +
                 "with a live predicted trajectory.",
                 MessageType.Success

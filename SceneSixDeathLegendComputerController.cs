@@ -25,7 +25,7 @@ namespace Return
             "&lt;TimeMinutesRemaining&gt; minutes.";
 
         private const string LegendText =
-            "If you feel lost, check your ship log and map.";
+            "If you feel lost, check your ship log.";
 
         internal static void MarkDeathEndingSeen()
         {
@@ -50,13 +50,13 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD109] Could not save the independent " +
                     "death-ending legend state: " + exception,
                     MessageType.Error
                 );
             }
-            ReturnMod.Instance?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD109] Terminal Scene 6 death ending saved; " +
                 "the legend ring is unlocked for the next loop.",
                 MessageType.Success
@@ -92,7 +92,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD118] Could not delete the mod progress " +
                     "file for a new expedition: " + exception,
                     MessageType.Warning
@@ -166,7 +166,7 @@ namespace Return
                 UnityEngine.Object.Destroy(computerObject);
                 computerObject = replacement;
 
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD109] Revival computer rebuilt with the " +
                     "post-death Giant's Deep legend ring.",
                     MessageType.Success
@@ -178,7 +178,7 @@ namespace Return
                 {
                     UnityEngine.Object.Destroy(replacement);
                 }
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD109] Could not add the death-ending " +
                     "legend ring; the original countdown computer remains: " +
                     exception,

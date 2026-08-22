@@ -32,7 +32,7 @@ namespace Return
                 ClearHeldCoreReference();
                 ClearNewHorizonsHeldItemState();
 
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN MAIN MENU RESET] Scene 6 exit treated as a " +
                     "terminal-loop death for held-item persistence. The " +
                     "next save load will begin a fresh loop.",
@@ -41,7 +41,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN MAIN MENU RESET] Cleanup failed safely: " +
                     exception,
                     MessageType.Error
@@ -62,7 +62,7 @@ namespace Return
                 SceneSixController.MarkRevivalCheckpoint();
                 ClearHeldCoreReference();
                 ClearNewHorizonsHeldItemState();
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN FRESH LOOP] Held items cleared; next " +
                     "SolarSystem load starts a fresh 17-minute loop.",
                     MessageType.Success
@@ -70,7 +70,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN FRESH LOOP] Cleanup failed safely: " +
                     exception,
                     MessageType.Error
@@ -290,7 +290,7 @@ namespace Return
                 .ResetProgressState();
             ReturnSceneSixCheckpointPersistenceController
                 .CancelPendingTitleScreenSave();
-            ReturnMod.Instance?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN NEW GAME] Scene-6 checkpoint cleared; the new " +
                 "expedition starts from Scene 1 (the Nomai mine).",
                 MessageType.Success

@@ -102,14 +102,14 @@ namespace Return
                     );
                 }
 
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PLACEMENT] Loaded saved layout: " + path,
                     MessageType.Success
                 );
             }
             catch (Exception exception)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PLACEMENT] Failed to load layout: " +
                     exception.Message,
                     MessageType.Error
@@ -323,7 +323,7 @@ namespace Return
 
             private void LogEnabled()
             {
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PLACEMENT] Placement mode " +
                     (_enabled ? "enabled." : "disabled."),
                     MessageType.Info
@@ -332,7 +332,7 @@ namespace Return
 
             private void LogSelected()
             {
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PLACEMENT] Selected: " +
                     _targetNames[_selectedIndex],
                     MessageType.Info
@@ -373,14 +373,14 @@ namespace Return
                         path,
                         JsonUtility.ToJson(layout, true)
                     );
-                    _mod.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN PLACEMENT] Layout saved: " + path,
                         MessageType.Success
                     );
                 }
                 catch (Exception exception)
                 {
-                    _mod.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN PLACEMENT] Save failed: " +
                         exception.Message,
                         MessageType.Error

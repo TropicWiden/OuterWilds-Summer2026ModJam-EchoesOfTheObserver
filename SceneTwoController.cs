@@ -124,7 +124,7 @@ namespace Return
 
         private static IEnumerator Transition(ReturnMod mod)
         {
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 2] Entering the Statue Workshop.",
                 MessageType.Success
             );
@@ -144,7 +144,7 @@ namespace Return
                 FindSceneBody("StatueIsland_Body");
             if (statueIslandBody == null)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN SCENE 2] Could not locate " +
                     "StatueIsland_Body.",
                     MessageType.Error
@@ -259,7 +259,7 @@ namespace Return
 
             RestoreTimePause();
 
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 2] Statue Workshop dialogue completed.",
                 MessageType.Success
             );
@@ -330,7 +330,7 @@ namespace Return
                 yield return null;
             }
 
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 3] Entered the scene-three black-screen " +
                 "placeholder after completing the statue dialogue.",
                 MessageType.Success
@@ -442,7 +442,7 @@ namespace Return
             );
             LogPlacedTransform(mod, statueIslandBody, "DAZ", daz);
             LogPlacedTransform(mod, statueIslandBody, "YARROW", yarrow);
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 2 BINDING] Exact StatueIsland_Body local " +
                 "transforms applied to the box and two Nomai.",
                 MessageType.Success
@@ -638,7 +638,7 @@ namespace Return
                     placedUp = up;
                 }
 
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN SCENE 2 PLACEMENT] No fully clear capsule " +
                     "was found for " + name + "; using its nearest " +
                     "floor position.",
@@ -1063,7 +1063,7 @@ namespace Return
                 }
                 score += candidate.GetComponentsInChildren<Renderer>(true).Length;
 
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     $"[RETURN SCENE 2 STATUE CANDIDATE] score={score}; " +
                     path,
                     MessageType.Info
@@ -1090,7 +1090,7 @@ namespace Return
                         continue;
                     }
 
-                    mod.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN SCENE 2 STATUE NAME] " +
                         GetObjectPath(candidate),
                         MessageType.Info
@@ -1289,7 +1289,7 @@ namespace Return
             ) * target.rotation;
             Vector3 localEuler = localRotation.eulerAngles;
 
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 2 " + label + "] position=(" +
                 localPosition.x.ToString("F4") + ", " +
                 localPosition.y.ToString("F4") + ", " +

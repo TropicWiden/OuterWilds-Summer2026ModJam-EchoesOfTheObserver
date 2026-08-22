@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using OWML.Common;
 using System;
 using System.Collections;
@@ -37,7 +37,7 @@ namespace Return
 
             if (brittleHollow == null || parent == null || sector == null)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN ADDITIONS] Brittle Hollow gravity-cannon " +
                     "references were unavailable. Existing Scene 6 was " +
                     "left untouched.",
@@ -148,7 +148,7 @@ namespace Return
                     mod
                 );
 
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN RECORDING] " + objectName +
                     " cloned from a complete vanilla recorder; blocks=" +
                     text.GetNumTextBlocks() + "; renderers=" +
@@ -159,7 +159,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN RECORDING] " + objectName +
                     " was skipped without affecting Scene 6: " + exception,
                     MessageType.Error
@@ -202,7 +202,7 @@ namespace Return
             audioVolume.enabled = true;
             audioVolume.SetVolumeActivation(true);
 
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN RECORDING AUDIO] name=" + objectName +
                 "; object=" + volumeObject.name +
                 "; layer=" + volumeObject.layer +
@@ -277,7 +277,7 @@ namespace Return
                 item.SetColliderActivation(true);
                 core.SetActive(true);
 
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN WARP CORE] Visible pickable advanced warp core " +
                     "created; type=" + item.GetWarpCoreType() + ".",
                     MessageType.Success
@@ -285,7 +285,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN WARP CORE] Core was skipped without affecting " +
                     "Scene 6: " + exception,
                     MessageType.Error

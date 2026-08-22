@@ -100,7 +100,7 @@ namespace Return
 
         private IEnumerator Play()
         {
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 3] Loading the original Echoes of the " +
                 "Eye story slides.",
                 MessageType.Info
@@ -366,7 +366,7 @@ namespace Return
             streams.SetActive(false);
             ReleaseStreaming();
 
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 3] Reverse ghost-matter memory completed.",
                 MessageType.Success
             );
@@ -387,7 +387,7 @@ namespace Return
                 "RETURN_SCENE5"
             );
 
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 5] Dialogue completed.",
                 MessageType.Success
             );
@@ -533,7 +533,7 @@ namespace Return
 
         private void Fail(string message)
         {
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN SCENE 3] " + message,
                 MessageType.Error
             );

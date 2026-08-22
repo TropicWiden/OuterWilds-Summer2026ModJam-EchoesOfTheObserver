@@ -1,4 +1,4 @@
-﻿using HarmonyLib;
+using HarmonyLib;
 using OWML.Common;
 using System;
 using System.Collections;
@@ -59,7 +59,7 @@ namespace Return
             _running = true;
             int generation = ++_generation;
             mod.StartCoroutine(PlayThenContinue(mod, generation));
-            mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD109] True ending paused for Daz's final " +
                 "conversation.",
                 MessageType.Success
@@ -209,7 +209,7 @@ namespace Return
 
             if (setupException != null)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD109] Victory dialogue failed; continuing " +
                     "to the stable ending: " + setupException,
                     MessageType.Error
@@ -217,7 +217,7 @@ namespace Return
             }
             else
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD109] Daz's final conversation completed; " +
                     "starting the stable true-ending presentation.",
                     MessageType.Success
@@ -312,7 +312,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN ENDING AUDIO] Restore failed safely: " +
                     exception,
                     MessageType.Error
@@ -352,7 +352,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN ENDING AUDIO] Mute failed safely: " +
                     exception,
                     MessageType.Error

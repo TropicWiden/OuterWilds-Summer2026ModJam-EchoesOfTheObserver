@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using HarmonyLib;
@@ -52,7 +52,7 @@ namespace Return
 
             if (mod != null)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN ERA CLEANUP] Hearthian NPCs=" + totalNpc +
                     "; Hearthian structures=" + totalStructures +
                     "; Nomai skeleton objects=" + totalSkeletons +
@@ -471,7 +471,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                __instance.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN ERA CLEANUP] Could not start cleanup: " +
                     exception,
                     MessageType.Error

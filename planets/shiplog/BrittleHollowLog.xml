@@ -1,4 +1,4 @@
-﻿<AstroObjectEntry xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/Outer-Wilds-New-Horizons/new-horizons/main/NewHorizons/Schemas/shiplog_schema.xsd">
+<AstroObjectEntry xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/Outer-Wilds-New-Horizons/new-horizons/main/NewHorizons/Schemas/shiplog_schema.xsd">
   <ID>Brittle Hollow</ID>
   <Entry>
     <ID>RETURN_BH_CURIOSITY</ID>
@@ -33,6 +33,10 @@
     <ExploreFact>
       <ID>RETURN_GIANT_DEEP_SECRET_REVEAL</ID>
       <Text>RETURN_GIANT_DEEP_SECRET_REVEAL_TEXT</Text>
+    </ExploreFact>
+    <ExploreFact>
+      <ID>RETURN_GIANT_DEEP_SECRET_ABSORBED</ID>
+      <Text>RETURN_GIANT_DEEP_SECRET_ABSORBED_TEXT</Text>
     </ExploreFact>
   </Entry>
   <Entry>

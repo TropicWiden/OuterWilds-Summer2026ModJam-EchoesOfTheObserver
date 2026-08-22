@@ -100,6 +100,7 @@ namespace Return
         private float _nextCometLookupTime;
         private float _nextPortalCarrierCheckTime;
         private float _nextPrisonLookupTime;
+        private float _nextTrappedSustainTime;
         private float _baselineGiantsDeepMass;
         private float _baselineSurfaceAcceleration;
         private float _baselineGravitationalMass;
@@ -128,6 +129,7 @@ namespace Return
             _nextCometLookupTime = 0f;
             _nextPortalCarrierCheckTime = 0f;
             _nextPrisonLookupTime = 0f;
+            _nextTrappedSustainTime = 0f;
             _baselineGiantsDeepMass = 0f;
             _baselineSurfaceAcceleration = 0f;
             _baselineGravitationalMass = 0f;
@@ -196,7 +198,7 @@ namespace Return
             }
             if (ignoredPairs > 0)
             {
-                _instance._mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD111 PRISON] Door contact: carrier now " +
                     "ignores Giant's Deep collision; pairs=" +
                     ignoredPairs + ".",
@@ -231,7 +233,7 @@ namespace Return
             if (generation != _generation ||
                 _giantsDeep == null || _coreSector == null)
             {
-                _mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD111 SIMPLE PRISON] Giant's Deep core " +
                     "was unavailable; no prison logic was armed.",
                     MessageType.Error
@@ -262,7 +264,7 @@ namespace Return
             yield return new WaitForFixedUpdate();
             _armed = true;
 
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD111 SIMPLE PRISON] armed=True; " +
                 "centre=GiantsDeep_Body; coreFallbackHalfExtents=" +
                 FormatVector(CoreFallbackHalfExtents) +
@@ -356,7 +358,7 @@ namespace Return
                 }
             }
 
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD111 SIMPLE PRISON] doorVisual=" +
                 (entrance != null) +
                 "; triggerColliderCount=" +
@@ -442,7 +444,7 @@ namespace Return
                 existingVisual.gameObject.SetActive(true);
             }
 
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD111 SIMPLE PRISON] primitiveSphereVisual=" +
                 (existingVisual != null) +
                 "; diameter=" +
@@ -520,7 +522,7 @@ namespace Return
                     out visualScaleMultiplier
                 );
 
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD111 SIMPLE PRISON] sphericalVisual=" +
                 (existingVisual != null) +
                 "; remainingFunctionalComponents=" +
@@ -874,7 +876,7 @@ namespace Return
                     continue;
                 }
 
-                _mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD111 CARRIER CONTAINMENT] type=" +
                     endpoint.PortalType + "; body=" + body.name +
                     "; position=" + position +
@@ -1008,7 +1010,7 @@ namespace Return
                     {
                         prisonBody.gameObject.SetActive(false);
                         _prisonBodyHidden = true;
-                        _mod?.ModHelper.Console.WriteLine(
+                        ReturnDebugLog.Write(
                             "[RETURN BUILD111 SIMPLE PRISON] Playable Bramble " +
                             "dimension body was hidden late.",
                             MessageType.Warning
@@ -1034,23 +1036,33 @@ namespace Return
                 return;
             }
 
-            if (_revivalInProgress ||
-                !SceneSixWarpCoreToolController.IsReturnWarpCoreHeld())
+            if (_revivalInProgress)
             {
                 return;
             }
 
-            // Build118: while trapped inside the prison the revive
-            // functions are disabled. The recall control stays available
-            // so launched portals can still be cleaned up.
+            // Build120v3: while trapped the player cannot suffocate or be
+            // killed; they remain prisoners until they meditate to the
+            // next new universe.
+            SustainTrappedPlayer();
+
+            if (!SceneSixWarpCoreToolController.IsReturnWarpCoreHeld())
+            {
+                return;
+            }
+
+            // Build120v3: singularities absorbed by the prison can never
+            // be recalled, and no revive is available inside the prison.
             if (OWInput.IsNewlyPressed(
                     InputLibrary.toolOptionDown,
                     InputMode.All
                 ))
             {
                 InputLibrary.toolOptionDown.ConsumeInput();
-                SceneSixWarpCoreToolController.TryRecallPortals();
-                return;
+                if (HasAbsorbedPortal())
+                {
+                    PostNoRecallNotification();
+                }
             }
         }
 
@@ -1181,11 +1193,16 @@ namespace Return
             body.DisableCollisionDetection();
             HidePhysicalObject(body.gameObject);
 
-            bool isPortalCarrier =
-                body.GetComponent<ReturnPortalEndpoint>() != null;
+            ReturnPortalEndpoint portalEndpoint =
+                body.GetComponent<ReturnPortalEndpoint>();
+            bool isPortalCarrier = portalEndpoint != null;
             Vector3 parkedLocal = Vector3.zero;
             if (isPortalCarrier)
             {
+                // Absorbed singularities become permanent parts of the
+                // prison: they keep teleporting, but can no longer be
+                // recalled or re-launched.
+                portalEndpoint.Absorbed = true;
                 // Keep the portal carrier exactly where it entered the
                 // prison, pinned to Giant's Deep, so its singularity stays
                 // visible at the seed shell instead of vanishing at the
@@ -1238,7 +1255,7 @@ namespace Return
             AstroObject astroObject = body.GetComponent<AstroObject>();
             bool isComet = astroObject != null &&
                 astroObject.GetAstroObjectName() == AstroObject.Name.Comet;
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD111 ABSORBED] body=" + body.name +
                 "; massAddedToGiantsDeep=" +
                 transferredMass.ToString("G9") +
@@ -1282,7 +1299,7 @@ namespace Return
                 new AbsorbedUnityBody(body, transferredMass)
             );
 
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD111 ABSORBED] rigidbody=" + body.name +
                 "; massAddedToGiantsDeep=" +
                 transferredMass.ToString("G9") +
@@ -1326,9 +1343,10 @@ namespace Return
             SceneSixEndingController.MarkPlayerPortalTransit();
             StartCoroutine(ShowTrappedHintRepeatedly());
 
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD111 ABSORBED] player=True; " +
-                "revivalStillAvailable=True; massAddedToGiantsDeep=" +
+                "revivalDisabled=True; meditationOnly=True; " +
+                "massAddedToGiantsDeep=" +
                 transferredMass.ToString("G9") + ".",
                 MessageType.Success
             );
@@ -1457,7 +1475,7 @@ namespace Return
                 PostRevivalNotification();
                 revived = true;
 
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD111 REVIVE] Player returned from " +
                     "Area A to the " +
                     (reviveAtShip ? "ship" : "Brittle Hollow checkpoint") +
@@ -1467,7 +1485,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD111 REVIVE] Failed: " + exception,
                     MessageType.Error
                 );
@@ -1513,7 +1531,7 @@ namespace Return
                     player.Body.SetAngularVelocity(
                         velocitySource.GetAngularVelocity()
                     );
-                    _mod.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN BUILD111 REVIVE] Checkpoint velocity " +
                         "applied: speed=" +
                         player.Body.GetVelocity().magnitude.ToString(
@@ -1549,7 +1567,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                _mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD111 TRAPPED HINT] Dialogue setup " +
                     "failed: " + exception,
                     MessageType.Error
@@ -1565,7 +1583,7 @@ namespace Return
                 }
                 catch (Exception exception)
                 {
-                    _mod?.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN BUILD111 TRAPPED HINT] Could not start " +
                         "the dialogue: " + exception,
                         MessageType.Error
@@ -1593,7 +1611,7 @@ namespace Return
                 }
                 catch (Exception exception)
                 {
-                    _mod?.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN BUILD111 TRAPPED HINT] Could not close " +
                         "the dialogue: " + exception,
                         MessageType.Error
@@ -1604,7 +1622,7 @@ namespace Return
                 {
                     UnityEngine.Object.Destroy(dialogue.gameObject);
                 }
-                _mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD111 TRAPPED HINT] Dialogue shown.",
                     MessageType.Success
                 );
@@ -1631,7 +1649,7 @@ namespace Return
             CharacterDialogueTree dialogue = spawned.Item1;
             if (dialogue == null)
             {
-                _mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN BUILD111 TRAPPED HINT] The dialogue could " +
                     "not be created; falling back to the notification.",
                     MessageType.Warning
@@ -1713,7 +1731,7 @@ namespace Return
                 SceneSixEndingController.ArmReviveImpactImmunity(12f);
                 SceneSixWarpCoreToolController.ClearShipEntranceState();
             }
-            _mod.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD111 REVIVE] External revival detected; " +
                 "player rendering, collision and mass were restored.",
                 MessageType.Success
@@ -1848,7 +1866,7 @@ namespace Return
             _lastGravityNotificationTime = 0f;
             _lastNotifiedGravity = 0f;
 
-            _mod?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD111 GRAVITY] baselineMass=" +
                 _baselineGiantsDeepMass.ToString("G9") +
                 "; surfaceAcceleration=" +
@@ -1907,7 +1925,7 @@ namespace Return
             }
 
             PostGravityUpdatedNotification(newSurface, ratio);
-            _mod?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD111 GRAVITY] massRatio=" +
                 ratio.ToString("F4") + "; surfaceGravity=" +
                 newSurface.ToString("F2") + " m/s².",
@@ -2076,7 +2094,7 @@ namespace Return
                     enabledRenderers++;
                 }
             }
-            ReturnMod.Instance?.ModHelper.Console.WriteLine(
+            ReturnDebugLog.Write(
                 "[RETURN BUILD111 PORTAL VISUAL RESTORED] position=" +
                 carrier.transform.position +
                 "; renderers=" + enabledRenderers + "/" +
@@ -2149,11 +2167,86 @@ namespace Return
             body.transform.localPosition = Vector3.zero;
             body.transform.localRotation = Quaternion.identity;
             PostPortalAbsorbedNotification();
-            _mod.ModHelper.Console.WriteLine(
+            RevealGiantDeepSecretShipLog();
+            ReturnDebugLog.Write(
                 "[RETURN PORTAL ABSORBED] carrier=" + carrier.name +
                 "; visualHidden=True; markerAtCore=True.",
                 MessageType.Success
             );
+        }
+
+        private void SustainTrappedPlayer()
+        {
+            if (Time.unscaledTime < _nextTrappedSustainTime)
+            {
+                return;
+            }
+            _nextTrappedSustainTime = Time.unscaledTime + 2f;
+            SceneSixEndingController.RestorePlayerResourcesAndVisor();
+        }
+
+        private static bool HasAbsorbedPortal()
+        {
+            foreach (ReturnPortalEndpoint endpoint in
+                ReturnPortalEndpoint.ActiveEndpoints)
+            {
+                if (endpoint != null && endpoint.Launched &&
+                    endpoint.Absorbed)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void PostNoRecallNotification()
+        {
+            string text = "$RETURN_PORTAL_ABSORBED_NO_RECALL";
+            if (_mod.NewHorizons != null)
+            {
+                string translated =
+                    _mod.NewHorizons.GetTranslationForUI(text);
+                if (!string.IsNullOrEmpty(translated))
+                {
+                    text = translated;
+                }
+            }
+            NotificationManager.SharedInstance?.PostNotification(
+                new NotificationData(
+                    NotificationTarget.All,
+                    text,
+                    4f
+                )
+            );
+        }
+
+        /// <summary>
+        /// Re-pins the trapped player to the prison core after a death
+        /// sequence was cancelled, keeping them hidden and kinematic.
+        /// </summary>
+        internal static void ReParkTrappedPlayer()
+        {
+            _instance?.ReParkTrappedPlayerInternal();
+        }
+
+        private void ReParkTrappedPlayerInternal()
+        {
+            if (_absorbedPlayer == null || _giantsDeep == null)
+            {
+                return;
+            }
+            OWRigidbody body = _absorbedPlayer.Body;
+            body.WarpToPositionRotation(
+                _giantsDeep.GetPosition(),
+                _giantsDeep.GetRotation()
+            );
+            body.SetVelocity(_giantsDeep.GetVelocity());
+            body.SetAngularVelocity(_giantsDeep.GetAngularVelocity());
+            body.transform.localPosition = Vector3.zero;
+            body.transform.localRotation = Quaternion.identity;
+            _absorbedPlayer.Hide();
+            body.MakeKinematic();
+            PostTrappedHintNotification();
         }
 
         private void PostPortalAbsorbedNotification()
@@ -2177,6 +2270,37 @@ namespace Return
             );
         }
 
+        private void RevealGiantDeepSecretShipLog()
+        {
+            try
+            {
+                ShipLogManager manager = Locator.GetShipLogManager();
+                if (manager == null)
+                {
+                    return;
+                }
+                manager.RevealFact(
+                    "RETURN_GIANT_DEEP_SECRET_REVEAL"
+                );
+                manager.RevealFact(
+                    "RETURN_GIANT_DEEP_SECRET_ABSORBED"
+                );
+                ReturnDebugLog.Write(
+                    "[RETURN BUILD120] Giant's Deep secret ship-log " +
+                    "entries revealed after the singularity was " +
+                    "absorbed by the prison.",
+                    MessageType.Success
+                );
+            }
+            catch (Exception exception)
+            {
+                ReturnDebugLog.Write(
+                    "[RETURN BUILD120] Could not reveal the Giant's " +
+                    "Deep secret ship-log entries: " + exception,
+                    MessageType.Error
+                );
+            }
+        }
         private void PostRevivalNotification()
         {
             string text = "$RETURN_PORTAL_REVIVED";

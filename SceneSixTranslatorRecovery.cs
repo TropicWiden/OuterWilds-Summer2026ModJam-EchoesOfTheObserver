@@ -45,7 +45,7 @@ namespace Return
 
                     if (attempt == 1 || attempt == 12)
                     {
-                        mod.ModHelper.Console.WriteLine(
+                        ReturnDebugLog.Write(
                             "[RETURN TRANSLATOR] Recovery pass " + attempt +
                             ": tool object active=" +
                             translator.gameObject.activeInHierarchy +
@@ -58,7 +58,7 @@ namespace Return
                 }
                 else if (attempt == 12)
                 {
-                    mod.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN TRANSLATOR] Player translator components " +
                         "were not available after scene initialization.",
                         MessageType.Error
@@ -166,7 +166,7 @@ namespace Return
                     finalizer: new HarmonyMethod(finalizer)
                 );
                 _unityExplorerGuardInstalled = true;
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INPUT] Installed a guard for Unity Explorer's " +
                     "stale DualSense button binding.",
                     MessageType.Success
@@ -174,7 +174,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN INPUT] Could not install the Unity Explorer " +
                     "gamepad guard: " + exception,
                     MessageType.Warning

@@ -1,8 +1,5 @@
 ![Echoes of the Observer](banner.jpg)
 
-The remake is now complete!
-Note: When loading into the game for the first time, you may need to wait about 20 seconds (depending on your hardware). This is completely normal.
-
 # Echoes of the Observer
 
 A story mod for *Outer Wilds*, created by Known-Mouse for the Summer 2026 Outer Wilds Mod Jam.
@@ -47,6 +44,8 @@ The game may briefly stutter while scenes are being initialized. This is normal,
 Using an existing profile is supported, but backing up your Outer Wilds save before installing any story mod is always recommended.
 
 If the beginning leaves you confused, try giving the little four-eyed blue fish a cuddle.
+
+Note: When loading into the game for the first time, you may need to wait about 20 seconds (depending on your hardware). This is completely normal.
 
 
 ## Credits and License

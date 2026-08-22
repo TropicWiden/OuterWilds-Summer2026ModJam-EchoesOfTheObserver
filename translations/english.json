@@ -8,6 +8,7 @@
     "RETURN_GIANT_DEEP_SECRET_NAME": "The Secret of Giant's Deep",
     "RETURN_GIANT_DEEP_SECRET_RUMOR_TEXT": "The core of Giant's Deep was once a prison.",
     "RETURN_GIANT_DEEP_SECRET_REVEAL_TEXT": "Daz shared this with me: the core of Giant's Deep once had an entrance. Behind it lay a “prison”, and anything that entered would be trapped inside, unable to move.\n\nDaz advised me to stay away from there.\n\nInside the “prison”, the revival function fails.",
+    "RETURN_GIANT_DEEP_SECRET_ABSORBED_TEXT": "You launched a singularity into the prison. It was absorbed, and the singularity remains at the core of Giant's Deep.",
     "RETURN_REVIVE_DEVICE_NAME": "Revival Device",
     "RETURN_REVIVE_DEVICE_RUMOR_TEXT": "Revive at the ship or the Brittle Hollow base",
     "RETURN_REVIVE_DEVICE_REVEAL_TEXT": "Daz made a revival device for me. When I am in danger, I can revive at the ship or the Brittle Hollow base at any time.\n\nShe reminded me not to press the wrong button.",
@@ -94,8 +95,8 @@
     "$RETURN_VICTORY_DIALOGUE_16": "YOU: Exploration and curiosity were never just survival traits attached to you.",
     "$RETURN_VICTORY_DIALOGUE_17": "YOU: You yourselves are the physical embodiment of \"exploration and curiosity\" in this universe.",
     "$RETURN_VICTORY_DIALOGUE_18": "YOU: It is your curiosity that gives the universe meaning, not the universe that defines you.",
-    "$RETURN_PRISON_TRAPPED_HINT": "You are trapped inside the prison at the core of Giant's Deep.\n\nD-pad down: recall black & white holes\nD-pad up: revive at the ship\nPause menu: revive at the Brittle Hollow base\nExit to the main menu to restart the game",
-    "If you feel lost, check your ship log and map.": "If you feel lost, check your ship log and map."
+    "$RETURN_PRISON_TRAPPED_HINT": "You are trapped inside the prison at the core of Giant's Deep.\n\nSingularities absorbed by the prison cannot be recalled.\nYou cannot revive at the ship or the Brittle Hollow base from here.\nOpen the pause menu and choose \"Meditate to the next new universe\" to leave.",
+    "If you feel lost, check your ship log.": "If you feel lost, check your ship log."
   },
   "UIDictionary": {
     "$RETURN_INTRO_AGE": "14.3 Billion years later",
@@ -116,16 +117,19 @@
     "$RETURN_PORTAL_RECALLED": "Black and white holes recalled.",
     "$RETURN_PORTAL_REVIVED": "Revival complete.",
     "$RETURN_PORTAL_ABSORBED": "The singularity has been absorbed.",
+    "$RETURN_PORTAL_ABSORBED_NO_RECALL": "The singularity has been absorbed by the prison and cannot be recalled.",
     "$RETURN_PORTAL_REVIVE_FAILED": "The revival device failed to activate.",
     "$RETURN_PORTAL_REVIVE_NEED_CORE": "Hold the warp core to revive at the Brittle Hollow base.",
     "$RETURN_PORTAL_MARKER_BLACK": "Black-Hole Endpoint",
     "$RETURN_PORTAL_MARKER_WHITE": "White-Hole Endpoint",
     "$RETURN_PORTAL_IMPACT_HINT": "You entered the black hole with an initial velocity. That initial velocity was the sum of your motion relative to the planet and the planet's own motion. Your velocity was preserved when you emerged from the white hole.\n\nTherefore, before entering a black hole, consider whether that velocity will cause a fatal collision.",
     "$RETURN_DEATH_ENDING": "As the Interloper approached the Sun, its shell ruptured, releasing ghost matter and killing the Nomai clan.\n\nYou survived as a fish beneath the water, longing to save the Nomai once more in the next universe.",
+    "$RETURN_DEATH_ENDING_2": "Although the Interloper did not explode in the solar system and release ghost matter, it drifted to another star system and killed the Nomai clan there.\n\n In the new universe, you plan to deal with the Interloper more carefully.",
     "$RETURN_TRUE_ENDING": "Outer Wilds was with me through the hardest time in my life.\nAt the time, I was backstabbed by a partner I trusted, felt malice everywhere, and lost hope in life.\nOuter Wilds healed me through a dozen or so hours of play.\n\nIt taught me this:\nWe live in order to experience what is beautiful.\nExploring the unknown through science and experiencing the beauty of the universe—this is what my life should be made of.\n\nPeople can be malicious, but the universe bears no malice. So my life must go on.\n\nAnd so I am still alive today, still conducting scientific research in geophysics, and still writing novels.\nI love science, and I love science fiction, because they are beautiful.\n\nI spent more than ten hours making this game mod.\nBefore this, I had no experience in game development. I could not write C#, nor did I know how to use Unity.\nI made this mod in the clumsiest way I knew and debugged 103 versions of it. It was exhausting.\nBut I believe it was worth it.\n\nPerhaps being able to play Outer Wilds and so many excellent mods was an act of kindness the universe gave me.\nI want to pass on the beauty I have experienced.\nIf you completed this story and are reading these words, thank you.\n\nMay your path through life be a gentle one.",
-    "$RETURN_PRISON_TRAPPED_HINT": "You are trapped inside the prison at the core of Giant's Deep.\n\nD-pad down: recall black & white holes\nD-pad up: revive at the ship\nPause menu: revive at the Brittle Hollow base\nExit to the main menu to restart the game",
+    "$RETURN_PRISON_TRAPPED_HINT": "You are trapped inside the prison at the core of Giant's Deep.\n\nSingularities absorbed by the prison cannot be recalled.\nYou cannot revive at the ship or the Brittle Hollow base from here.\nOpen the pause menu and choose \"Meditate to the next new universe\" to leave.",
     "$RETURN_PORTAL_REVIVE_CHECKPOINT_MENU": "Revive at the Brittle Hollow Base",
     "$RETURN_GRAVITY_UPDATED": "Giant's Deep surface gravity: {0} m/s²",
-    "$RETURN_ENTRY_HINT": "If you feel lost, try hugging the little blue fish. Remember to check your ship log."
+    "$RETURN_ENTRY_HINT": "If you feel lost, try hugging the little blue fish. Remember to check your ship log.",
+    "$RETURN_SCENE6_ENTRY_HINT": "If you feel lost, check your ship log."
   }
 }

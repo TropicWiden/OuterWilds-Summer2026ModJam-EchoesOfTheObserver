@@ -67,7 +67,7 @@ namespace Return
                 SceneSixController.RestoreActiveStateFromSave();
                 if (SceneSixController.IsActive)
                 {
-                    mod.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN CHECKPOINT] Scene 6 restored after the " +
                         "title screen finished reading player data.",
                         MessageType.Success
@@ -76,7 +76,7 @@ namespace Return
             }
             else
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN CHECKPOINT] Player data was not ready before " +
                     "the title-screen restore timeout.",
                     MessageType.Error
@@ -119,7 +119,7 @@ namespace Return
                 );
                 PlayerData.SaveCurrentGame();
                 _savePending = false;
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN CHECKPOINT] Scene 6 checkpoint saved from " +
                     "the title screen without retaining loop state.",
                     MessageType.Success
@@ -127,7 +127,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN CHECKPOINT] Scene 6 checkpoint could not be " +
                     "saved without interrupting the game: " + exception,
                     MessageType.Error

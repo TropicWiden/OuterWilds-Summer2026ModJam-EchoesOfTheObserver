@@ -17,7 +17,7 @@ namespace Return
     /// </summary>
     internal static class SceneSixPauseAndHintController
     {
-        private const string EntryHintKey = "$RETURN_ENTRY_HINT";
+        private const string EntryHintKey = "$RETURN_SCENE6_ENTRY_HINT";
         private const string MenuReviveKey =
             "$RETURN_PORTAL_REVIVE_CHECKPOINT_MENU";
 
@@ -55,7 +55,7 @@ namespace Return
                 {
                     _reviveButton.OnSubmitAction +=
                         ReviveAtCheckpointFromMenu;
-                    mod.ModHelper.Console.WriteLine(
+                    ReturnDebugLog.Write(
                         "[RETURN PAUSE MENU] Added the Brittle Hollow " +
                         "base revive button.",
                         MessageType.Success
@@ -65,7 +65,7 @@ namespace Return
             catch (Exception exception)
             {
                 _reviveButton = null;
-                mod.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PAUSE MENU] Could not add the revive " +
                     "button: " + exception,
                     MessageType.Error
@@ -81,7 +81,7 @@ namespace Return
             }
             if (Build111SimpleCorePrisonController.IsPlayerTrapped)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PAUSE MENU] Revive is disabled while the " +
                     "player is trapped in the Giant's Deep prison.",
                     MessageType.Warning
@@ -106,7 +106,7 @@ namespace Return
                         4f
                     )
                 );
-                mod?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PAUSE MENU] Checkpoint revive requires " +
                     "holding the Return warp core.",
                     MessageType.Warning
@@ -134,7 +134,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PAUSE MENU] Revive button failed: " +
                     exception,
                     MessageType.Error
@@ -157,8 +157,7 @@ namespace Return
             string text = Translate(
                 mod,
                 EntryHintKey,
-                "If you feel lost, try hugging the little blue fish. " +
-                "Remember to check your ship log."
+                "If you feel lost, check your ship log."
             );
             NotificationManager.SharedInstance?.PostNotification(
                 new NotificationData(
@@ -278,7 +277,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PAUSE MENU] Could not set the meditation " +
                     "condition: " + exception,
                     MessageType.Error
@@ -305,7 +304,7 @@ namespace Return
             }
             catch (Exception exception)
             {
-                ReturnMod.Instance?.ModHelper.Console.WriteLine(
+                ReturnDebugLog.Write(
                     "[RETURN PAUSE MENU] Could not force-show the " +
                     "Meditate to the End button: " + exception,
                     MessageType.Error
